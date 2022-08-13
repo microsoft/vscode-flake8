@@ -11,7 +11,7 @@ import subprocess
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import BinaryIO, Dict, Sequence, Union
+from typing import BinaryIO, Dict, Optional, Sequence, Union
 
 CONTENT_LENGTH = "Content-Length: "
 RUNNER_SCRIPT = str(pathlib.Path(__file__).parent / "runner.py")
@@ -200,10 +200,10 @@ def get_or_start_json_rpc(
 class RpcRunResult:
     """Object to hold result from running tool over RPC."""
 
-    def __init__(self, stdout: str, stderr: str, exception: str = None):
-        self.stdout = stdout
-        self.stderr = stderr
-        self.exception = exception
+    def __init__(self, stdout: str, stderr: str, exception: Optional[str] = None):
+        self.stdout: str = stdout
+        self.stderr: str = stderr
+        self.exception: Optional[str] = exception
 
 
 def run_over_json_rpc(
