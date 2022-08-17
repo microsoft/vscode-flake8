@@ -1,33 +1,33 @@
-# Project
+# Flake8 extension for Visual Studio Code
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+A Visual Studio Code extension with support for the `flake8` linter. The extension ships with `flake8=5.0.4`.
 
-As the maintainer of this project, please make a few updates:
+Note:
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+-   This extension is supported for all [actively supported versions](https://devguide.python.org/#status-of-python-branches) of the `python` language (i.e., python >= 3.7).
+-   The bundled `flake8` is only used if there is no installed version of `flake8` found in the selected `python` environment.
+-   Minimum supported version of `flake8` is `5.0.0`.
 
-## Contributing
+## Usage
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+Once installed in Visual Studio Code, flake8 will be automatically executed when you open a Python file.
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+If you want to disable flake8, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) per workspace in Visual Studio Code.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+## Settings
 
-## Trademarks
+| Settings                | Default                                                                                                                                | Description                                                                                                                                                                                                                                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| flake8.args             | `[]`                                                                                                                                   | Custom arguments passed to `flake8`. E.g `"flake8.args" = ["--rcfile=<file>"]`                                                                                                                                                                                                                                           |
+| flake8.severity         | `{ "convention": "Information", "error": "Error", "fatal": "Error", "refactor": "Hint", "warning": "Warning", "info": "Information" }` | Controls mapping of severity from `flake8` to VS Code severity when displaying in the problems window. You can override specific `flake8` error codes `{ "convention": "Information", "error": "Error", "fatal": "Error", "refactor": "Hint", "warning": "Warning", "W0611": "Error", "undefined-variable": "Warning" }` |
+| flake8.logLevel         | `error`                                                                                                                                | Sets the tracing level for the extension.                                                                                                                                                                                                                                                                                |
+| flake8.path             | `[]`                                                                                                                                   | Setting to provide custom `flake8` executable. This will slow down linting, since we will have to run `flake8` executable every time or file save or open. Example 1: `["~/global_env/flake8"]` Example 2: `["conda", "run", "-n", "lint_env", "python", "-m", "flake8"]`                                                |
+| flake8.interpreter      | `[]`                                                                                                                                   | Path to a python interpreter to use to run the linter server.                                                                                                                                                                                                                                                            |
+| flake8.importStrategy   | `useBundled`                                                                                                                           | Setting to choose where to load `flake8` from. `useBundled` picks flake8 bundled with the extension. `fromEnvironment` uses `flake8` available in the environment.                                                                                                                                                       |
+| flake8.showNotification | `off`                                                                                                                                  | Setting to control when a notification is shown.                                                                                                                                                                                                                                                                         |
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+## Commands
+
+| Command                | Description                       |
+| ---------------------- | --------------------------------- |
+| Flake8: Restart Server | Force re-start the linter server. |
