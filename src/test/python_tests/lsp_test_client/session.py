@@ -154,7 +154,7 @@ class LspSession(MethodDispatcher):
             "codeAction/resolve", params=code_action_resolve_params
         )
         return fut.result()
-        
+
     def set_notification_callback(self, notification_name, callback):
         """Set custom LS notification handler."""
         self._notification_callbacks[notification_name] = callback
