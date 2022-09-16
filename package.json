@@ -69,26 +69,6 @@
         ],
         "configuration": {
             "properties": {
-                "flake8.logLevel": {
-                    "default": "error",
-                    "description": "%settings.logLevel.description%",
-                    "enum": [
-                        "debug",
-                        "error",
-                        "info",
-                        "off",
-                        "warn"
-                    ],
-                    "scope": "window",
-                    "type": "string",
-                    "enumDescriptions": [
-                        "%settings.logLevel.debug.description%",
-                        "%settings.logLevel.error.description%",
-                        "%settings.logLevel.info.description%",
-                        "%settings.logLevel.off.description%",
-                        "%settings.logLevel.warn.description%"
-                    ]
-                },
                 "flake8.args": {
                     "default": [],
                     "description": "%settings.args.description%",
@@ -97,45 +77,6 @@
                     },
                     "scope": "resource",
                     "type": "array"
-                },
-                "flake8.severity": {
-                    "default": {
-                        "E": "Error",
-                        "F": "Error",
-                        "I": "Information",
-                        "W": "Warning"
-                    },
-                    "additionalProperties": {
-                        "type": "string",
-                        "enum": [
-                            "Error",
-                            "Hint",
-                            "Information",
-                            "Warning"
-                        ]
-                    },
-                    "description": "%settings.severity.description%",
-                    "scope": "resource",
-                    "type": "object"
-                },
-                "flake8.path": {
-                    "default": [],
-                    "description": "%settings.path.description%",
-                    "scope": "resource",
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array",
-                    "examples": [
-                        [
-                            "~/global_env/flake8"
-                        ],
-                        [
-                            "~/.env/python",
-                            "-m",
-                            "flake8"
-                        ]
-                    ]
                 },
                 "flake8.importStrategy": {
                     "default": "useBundled",
@@ -159,6 +100,65 @@
                         "type": "string"
                     },
                     "type": "array"
+                },
+                "flake8.logLevel": {
+                    "default": "error",
+                    "description": "%settings.logLevel.description%",
+                    "enum": [
+                        "debug",
+                        "error",
+                        "info",
+                        "off",
+                        "warn"
+                    ],
+                    "scope": "window",
+                    "type": "string",
+                    "enumDescriptions": [
+                        "%settings.logLevel.debug.description%",
+                        "%settings.logLevel.error.description%",
+                        "%settings.logLevel.info.description%",
+                        "%settings.logLevel.off.description%",
+                        "%settings.logLevel.warn.description%"
+                    ]
+                },
+                "flake8.path": {
+                    "default": [],
+                    "description": "%settings.path.description%",
+                    "scope": "resource",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "examples": [
+                        [
+                            "~/global_env/flake8"
+                        ],
+                        [
+                            "~/.env/python",
+                            "-m",
+                            "flake8"
+                        ]
+                    ]
+                },
+                "flake8.severity": {
+                    "default": {
+                        "E": "Error",
+                        "F": "Error",
+                        "I": "Information",
+                        "W": "Warning"
+                    },
+                    "additionalProperties": {
+                        "type": "string",
+                        "enum": [
+                            "Error",
+                            "Hint",
+                            "Information",
+                            "Warning"
+                        ]
+                    },
+                    "description": "%settings.severity.description%",
+                    "scope": "resource",
+                    "type": "object"
                 },
                 "flake8.showNotifications": {
                     "default": "off",
