@@ -27,6 +27,15 @@ LINTER = utils.get_server_info_defaults()["name"]
                 "command": "editor.action.formatDocument",
                 "arguments": None,
             },
+        ),
+        (
+            "E274",
+            "x = 1\tin [1, 2, 3]",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+                "arguments": None,
+            },
         )
     ],
 )
