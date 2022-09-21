@@ -36,7 +36,7 @@ LINTER = utils.get_server_info_defaults()["name"]
                 "command": "editor.action.formatDocument",
                 "arguments": None,
             },
-        )
+        ),
     ],
 )
 def test_command_code_action(code, contents, command):
