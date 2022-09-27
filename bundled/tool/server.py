@@ -362,6 +362,26 @@ def _log_version_info() -> None:
 # Internal functional and settings management APIs.
 # *****************************************************
 def _update_workspace_settings(settings):
+    if not settings:
+        key = os.getcwd()
+        WORKSPACE_SETTINGS[key] = {
+            "workspaceFS": key,
+            "workspace": uris.from_fs_path(key),
+            "logLevel": "error",
+            "path": [],
+            "interpreter": [sys.executable],
+            "args": [],
+            "severity": {
+                "E": "Error",
+                "F": "Error",
+                "I": "Information",
+                "W": "Warning",
+            },
+            "importStrategy": "useBundled",
+            "showNotifications": "off",
+        }
+        return
+
     for setting in settings:
         key = uris.to_fs_path(setting["workspace"])
         WORKSPACE_SETTINGS[key] = {
@@ -383,7 +403,8 @@ def _get_settings_by_document(document: workspace.Document | None):
             return WORKSPACE_SETTINGS[str(document_workspace)]
         document_workspace = document_workspace.parent
 
-    return list(WORKSPACE_SETTINGS.values())[0]
+    setting_values = list(WORKSPACE_SETTINGS.values())
+    return setting_values[0]
 
 
 # *****************************************************
