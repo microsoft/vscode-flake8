@@ -1,5 +1,3 @@
-# Change Log
+# Changelog
 
-## 2022.2.0
-
--   Initial release of vscode-flake8 extension, with `flake8` version `5.0.4`.
+**Please see https://github.com/microsoft/vscode-flake8/releases for the latest release notes.**
