@@ -20,6 +20,15 @@ LINTER = utils.get_server_info_defaults()["name"]
     ("code", "contents", "command"),
     [
         (
+            "E271",
+            "from collections import    (namedtuple, defaultdict)",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+                "arguments": None,
+            },
+        ),
+        (
             "E273",
             "x = 1 in\t[1, 2, 3]",
             {
