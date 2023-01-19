@@ -25,7 +25,6 @@ LINTER = utils.get_server_info_defaults()["name"]
             {
                 "title": f"{LINTER}: Run document formatting",
                 "command": "editor.action.formatDocument",
-                "arguments": None,
             },
         ),
         (
@@ -34,7 +33,6 @@ LINTER = utils.get_server_info_defaults()["name"]
             {
                 "title": f"{LINTER}: Run document formatting",
                 "command": "editor.action.formatDocument",
-                "arguments": None,
             },
         ),
         (
@@ -43,7 +41,6 @@ LINTER = utils.get_server_info_defaults()["name"]
             {
                 "title": f"{LINTER}: Run document formatting",
                 "command": "editor.action.formatDocument",
-                "arguments": None,
             },
         ),
         (
@@ -52,7 +49,6 @@ LINTER = utils.get_server_info_defaults()["name"]
             {
                 "title": f"{LINTER}: Run document formatting",
                 "command": "editor.action.formatDocument",
-                "arguments": None,
             },
         ),
     ],
