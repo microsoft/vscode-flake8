@@ -41,8 +41,7 @@
     "activationEvents": [
         "onLanguage:python",
         "workspaceContains:.flake8",
-        "workspaceContains:*.py",
-        "onCommand:flake8.restart"
+        "workspaceContains:*.py"
     ],
     "main": "./dist/extension.js",
     "scripts": {
