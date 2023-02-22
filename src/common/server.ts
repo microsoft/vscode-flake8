@@ -13,11 +13,11 @@ import {
 import { DEBUG_SERVER_SCRIPT_PATH, SERVER_SCRIPT_PATH } from './constants';
 import { traceError, traceInfo, traceLog, traceVerbose } from './log/logging';
 import { getDebuggerPath } from './python';
-import { getExtensionSettings, getWorkspaceSettings, ISettings } from './settings';
+import { getExtensionSettings, getGlobalSettings, getWorkspaceSettings, ISettings } from './settings';
 import { getProjectRoot, traceLevelToLSTrace } from './utilities';
 import { isVirtualWorkspace } from './vscodeapi';
 
-export type IInitOptions = { settings: ISettings[] };
+export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 
 async function getDebugServerOptions(
     interpreter: string[],
@@ -132,6 +132,7 @@ export async function restartServer(
         outputChannel,
         {
             settings: await getExtensionSettings(serverId, true),
+            globalSettings: await getGlobalSettings(serverId, false),
         },
         workspaceSetting,
     );
