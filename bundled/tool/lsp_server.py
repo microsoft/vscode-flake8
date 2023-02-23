@@ -90,8 +90,21 @@ def did_close(params: lsp.DidCloseTextDocumentParams) -> None:
     LSP_SERVER.publish_diagnostics(document.uri, [])
 
 
+def _is_supported_file(document: workspace.Document) -> bool:
+    """Checks if the given document is supported by this tool."""
+    if document.path:
+        file_path = pathlib.Path(document.path)
+        return file_path.exists()
+
+    return False
+
+
 def _linting_helper(document: workspace.Document) -> list[lsp.Diagnostic]:
     try:
+        if not _is_supported_file(document):
+            log_always(f"Skipping linting for {document.uri} skipped: not supported")
+            return []
+
         result = _run_tool_on_document(document, use_stdin=False)
         if result and result.stdout:
             log_to_output(f"{document.uri} :\r\n{result.stdout}")
