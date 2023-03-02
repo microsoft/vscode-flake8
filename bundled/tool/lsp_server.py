@@ -37,7 +37,7 @@ update_sys_path(
 import lsp_jsonrpc as jsonrpc
 import lsp_utils as utils
 from lsprotocol import types as lsp
-from pygls import protocol, server, uris, workspace
+from pygls import server, uris, workspace
 
 WORKSPACE_SETTINGS = {}
 GLOBAL_SETTINGS = {}
@@ -325,15 +325,6 @@ def initialize(params: lsp.InitializeParams) -> None:
         f"Global settings:\r\n{json.dumps(GLOBAL_SETTINGS, indent=4, ensure_ascii=False)}\r\n"
     )
 
-    if isinstance(LSP_SERVER.lsp, protocol.LanguageServerProtocol):
-        if any(setting["logLevel"] == "debug" for setting in settings):
-            LSP_SERVER.lsp.trace = lsp.TraceValues.Verbose
-        elif any(
-            setting["logLevel"] in ["error", "warn", "info"] for setting in settings
-        ):
-            LSP_SERVER.lsp.trace = lsp.TraceValues.Messages
-        else:
-            LSP_SERVER.lsp.trace = lsp.TraceValues.Off
     _log_version_info()
 
 
@@ -393,7 +384,6 @@ def _log_version_info() -> None:
 # *****************************************************
 def _get_global_defaults():
     return {
-        "logLevel": GLOBAL_SETTINGS.get("logLevel", "error"),
         "path": GLOBAL_SETTINGS.get("path", []),
         "interpreter": GLOBAL_SETTINGS.get("interpreter", [sys.executable]),
         "args": GLOBAL_SETTINGS.get("args", []),

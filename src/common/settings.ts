@@ -3,7 +3,6 @@
 
 import { ConfigurationChangeEvent, WorkspaceConfiguration, WorkspaceFolder } from 'vscode';
 import { traceLog } from './log/logging';
-import { LoggingLevelSettingType } from './log/types';
 import { getInterpreterDetails } from './python';
 import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
 
@@ -17,7 +16,6 @@ const DEFAULT_SEVERITY: Record<string, string> = {
 export interface ISettings {
     cwd: string;
     workspace: string;
-    logLevel: LoggingLevelSettingType;
     args: string[];
     severity: Record<string, string>;
     path: string[];
@@ -77,7 +75,7 @@ function getPath(namespace: string, workspace: WorkspaceFolder): string[] {
     return [];
 }
 
-function getCwd(namespace: string, workspace: WorkspaceFolder): string {
+function getCwd(workspace: WorkspaceFolder): string {
     const legacyConfig = getConfiguration('python', workspace.uri);
     const legacyCwd = legacyConfig.get<string>('linting.cwd');
 
@@ -112,9 +110,8 @@ export async function getWorkspaceSettings(
     const args = getArgs(namespace, workspace).map((s) => resolveWorkspace(workspace, s));
     const path = getPath(namespace, workspace).map((s) => resolveWorkspace(workspace, s));
     const workspaceSetting = {
-        cwd: getCwd(namespace, workspace),
+        cwd: getCwd(workspace),
         workspace: workspace.uri.toString(),
-        logLevel: config.get<LoggingLevelSettingType>('logLevel', 'error'),
         args,
         severity: config.get<Record<string, string>>('severity', DEFAULT_SEVERITY),
         path,
@@ -144,7 +141,6 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
     const setting = {
         cwd: process.cwd(),
         workspace: process.cwd(),
-        logLevel: getGlobalValue<LoggingLevelSettingType>(config, 'logLevel', 'error'),
         args: getGlobalValue<string[]>(config, 'args', []),
         severity: getGlobalValue<Record<string, string>>(config, 'severity', DEFAULT_SEVERITY),
         path: getGlobalValue<string[]>(config, 'path', []),
@@ -157,7 +153,6 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
 
 export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespace: string): boolean {
     const settings = [
-        `${namespace}.logLevel`,
         `${namespace}.args`,
         `${namespace}.severity`,
         `${namespace}.path`,
