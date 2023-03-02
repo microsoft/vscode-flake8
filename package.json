@@ -2,7 +2,7 @@
     "name": "flake8",
     "displayName": "Flake8",
     "description": "%extension.description%",
-    "version": "2023.3.0-dev",
+    "version": "2023.4.0",
     "preview": true,
     "serverInfo": {
         "name": "Flake8",
