@@ -1,85 +1,60 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { Disposable, OutputChannel } from 'vscode';
+import * as fsapi from 'fs-extra';
+import { Disposable, env, LogOutputChannel, WorkspaceFolder } from 'vscode';
 import { State } from 'vscode-languageclient';
 import {
-    Executable,
     LanguageClient,
     LanguageClientOptions,
     RevealOutputChannelOn,
     ServerOptions,
 } from 'vscode-languageclient/node';
 import { DEBUG_SERVER_SCRIPT_PATH, SERVER_SCRIPT_PATH } from './constants';
-import { traceError, traceInfo, traceLog, traceVerbose } from './log/logging';
+import { traceError, traceInfo, traceVerbose } from './log/logging';
 import { getDebuggerPath } from './python';
 import { getExtensionSettings, getGlobalSettings, getWorkspaceSettings, ISettings } from './settings';
-import { getProjectRoot, traceLevelToLSTrace } from './utilities';
+import { getLSClientTraceLevel, getProjectRoot } from './utilities';
 import { isVirtualWorkspace } from './vscodeapi';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 
-async function getDebugServerOptions(
-    interpreter: string[],
-    cwd: string,
-    env: {
-        [x: string]: string | undefined;
-    },
-): Promise<Executable> {
-    // Set debugger path needed for debugging python code.
-    if (env.DEBUGPY_ENABLED !== 'False') {
-        env.DEBUGPY_PATH = await getDebuggerPath();
-    }
-
-    const command = interpreter[0];
-    const args = interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
-    traceLog(`Server Command [DEBUG]: ${[command, ...args].join(' ')}`);
-
-    return {
-        command,
-        args,
-        options: { cwd, env },
-    };
-}
-
-async function getRunServerOptions(
-    interpreter: string[],
-    cwd: string,
-    env: {
-        [x: string]: string | undefined;
-    },
-): Promise<Executable> {
-    const command = interpreter[0];
-    const args = interpreter.slice(1).concat([SERVER_SCRIPT_PATH]);
-    traceLog(`Server Command [RUN]: ${[command, ...args].join(' ')}`);
-
-    return Promise.resolve({
-        command,
-        args,
-        options: { cwd, env },
-    });
-}
-
-export async function createServer(
-    interpreter: string[],
+async function createServer(
+    settings: ISettings,
     serverId: string,
     serverName: string,
-    outputChannel: OutputChannel,
+    outputChannel: LogOutputChannel,
     initializationOptions: IInitOptions,
-    workspaceSetting: ISettings,
 ): Promise<LanguageClient> {
-    const cwd = getProjectRoot().uri.fsPath;
+    const command = settings.interpreter[0];
+    const cwd = settings.cwd;
+
+    // Set debugger path needed for debugging python code.
     const newEnv = { ...process.env };
+    const debuggerPath = await getDebuggerPath();
+    const isDebugScript = await fsapi.pathExists(DEBUG_SERVER_SCRIPT_PATH);
+    if (newEnv.USE_DEBUGPY && debuggerPath) {
+        newEnv.DEBUGPY_PATH = debuggerPath;
+    } else {
+        newEnv.USE_DEBUGPY = 'False';
+    }
 
     // Set import strategy
-    newEnv.LS_IMPORT_STRATEGY = workspaceSetting.importStrategy;
+    newEnv.LS_IMPORT_STRATEGY = settings.importStrategy;
 
     // Set notification type
-    newEnv.LS_SHOW_NOTIFICATION = workspaceSetting.showNotifications;
+    newEnv.LS_SHOW_NOTIFICATION = settings.showNotifications;
+
+    const args =
+        newEnv.USE_DEBUGPY === 'False' || !isDebugScript
+            ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])
+            : settings.interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
+    traceInfo(`Server run command: ${[command, ...args].join(' ')}`);
 
     const serverOptions: ServerOptions = {
-        run: await getRunServerOptions(interpreter, cwd, { ...newEnv }),
-        debug: await getDebugServerOptions(interpreter, cwd, { ...newEnv }),
+        command,
+        args,
+        options: { cwd, env: newEnv },
     };
 
     // Options to control the language client
@@ -106,7 +81,7 @@ let _disposables: Disposable[] = [];
 export async function restartServer(
     serverId: string,
     serverName: string,
-    outputChannel: OutputChannel,
+    outputChannel: LogOutputChannel,
     lsClient?: LanguageClient,
 ): Promise<LanguageClient | undefined> {
     if (lsClient) {
@@ -115,7 +90,8 @@ export async function restartServer(
         _disposables.forEach((d) => d.dispose());
         _disposables = [];
     }
-    const workspaceSetting = await getWorkspaceSettings(serverId, getProjectRoot(), true);
+    const projectRoot = await getProjectRoot();
+    const workspaceSetting = await getWorkspaceSettings(serverId, projectRoot, true);
     if (workspaceSetting.interpreter.length === 0) {
         traceError(
             'Python interpreter missing:\r\n' +
@@ -125,19 +101,10 @@ export async function restartServer(
         return undefined;
     }
 
-    const newLSClient = await createServer(
-        workspaceSetting.interpreter,
-        serverId,
-        serverName,
-        outputChannel,
-        {
-            settings: await getExtensionSettings(serverId, true),
-            globalSettings: await getGlobalSettings(serverId, false),
-        },
-        workspaceSetting,
-    );
-
-    newLSClient.trace = traceLevelToLSTrace(workspaceSetting.logLevel);
+    const newLSClient = await createServer(workspaceSetting, serverId, serverName, outputChannel, {
+        settings: await getExtensionSettings(serverId, true),
+        globalSettings: await getGlobalSettings(serverId, false),
+    });
     traceInfo(`Server: Start requested.`);
     _disposables.push(
         newLSClient.onDidChangeState((e) => {
@@ -153,7 +120,8 @@ export async function restartServer(
                     break;
             }
         }),
-        newLSClient.start(),
     );
+    await newLSClient.start();
+    await newLSClient.setTrace(getLSClientTraceLevel(outputChannel.logLevel, env.logLevel));
     return newLSClient;
 }
