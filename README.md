@@ -14,6 +14,34 @@ Once installed in Visual Studio Code, flake8 will be automatically executed when
 
 If you want to disable flake8, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) per workspace in Visual Studio Code.
 
+## Configuration
+`flake8` can be configured with either a `pyproject.toml` or [`.flake8`](https://flake8.pycqa.org/en/latest/user/configuration.html) file. The extension will first check for the configuration file in the root directory, either the `pyproject.toml`, before checking the `.flake8` file. You can specific a custom location using the flake8.args as either `--toml-config=/path/to/pyproject.toml` or `--config=/path/to/.flake8`. While flake8 does not natively support the pyproject.toml, support is provided by the [flake8-pyproject](https://pypi.org/project/Flake8-pyproject/)) extension.
+
+The following is an example configuration for `flake8` in the `pyproject.toml`.
+We recommend using the `pyproject.toml` format which can be used to configure all of your extensions.
+```toml
+[tool.flake8]
+# Check that this is aligned with your other tools like Black
+max-line-length = 120
+
+exclude = [
+    # No need to traverse our git directory
+    ".git",
+    # There's no value in checking cache directories
+    "__pycache__"
+]
+
+# Use extend-ignore to add to already ignored checks which are anti-patterns like W503.
+extend-ignore = [
+    # PEP 8 recommends to treat : in slices as a binary operator with the lowest priority, and to leave an equal
+    # amount of space on either side, except if a parameter is omitted (e.g. ham[1 + 1 :]).
+    # This behaviour may raise E203 whitespace before ':' warnings in style guide enforcement tools like Flake8.
+    # Since E203 is not PEP 8 compliant, we tell Flake8 to ignore this warning.
+    # https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html#slices    
+    "E203"
+]
+```
+
 ## Settings
 
 | Settings                | Default                                                                                                                                | Description                                                                                                                                                                                                                                                                                                              |
