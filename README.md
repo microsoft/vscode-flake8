@@ -17,7 +17,7 @@ If you want to disable flake8, you can [disable this extension](https://code.vis
 ## Configuration
 `flake8` can be configured with either a `pyproject.toml` or [`.flake8`](https://flake8.pycqa.org/en/latest/user/configuration.html) file. `flake8` will first check for the configuration file in the root directory, first checking the `pyproject.toml`, before checking the `.flake8` file. You can specify a custom location using the flake8.args as either `--toml-config=/path/to/pyproject.toml` or `--config=/path/to/.flake8`. While flake8 does not natively support the pyproject.toml, support is provided by the [flake8-pyproject](https://pypi.org/project/Flake8-pyproject/) plugin included in the extension.
 
-The following is an example configuration for `flake8` in the `pyproject.toml`.
+The following is an example configuration for `flake8` in a `pyproject.toml` file.
 We recommend using the `pyproject.toml` format which can be used to configure all of your extensions.
 ```toml
 [tool.flake8]
