@@ -159,7 +159,7 @@ def _parse_output_using_regex(
             data = match.groupdict()
             position = lsp.Position(
                 line=max([int(data["line"]) - line_offset, 0]),
-                character=int(data["column"]) - col_offset,
+                character=max([int(data["column"]) - col_offset, 0]),
             )
             diagnostic = lsp.Diagnostic(
                 range=lsp.Range(
