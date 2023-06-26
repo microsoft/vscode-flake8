@@ -254,7 +254,7 @@ def code_action(params: lsp.CodeActionParams) -> List[lsp.CodeAction]:
     return code_actions
 
 
-@QUICK_FIXES.quick_fix(codes=["E271", "E273", "E274", "E275"])
+@QUICK_FIXES.quick_fix(codes=["E271", "E273", "E274", "E275", "E241"])
 def fix_format(
     _document: workspace.Document, diagnostics: List[lsp.Diagnostic]
 ) -> List[lsp.CodeAction]:
