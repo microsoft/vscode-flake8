@@ -38,6 +38,12 @@
     "extensionDependencies": [
         "ms-python.python"
     ],
+    "capabilities": {
+        "virtualWorkspaces": {
+            "supported": false,
+            "description": "Virtual Workspaces are not supported with flake8."
+        }
+    },
     "activationEvents": [
         "onLanguage:python",
         "workspaceContains:.flake8",
