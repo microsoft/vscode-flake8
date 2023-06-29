@@ -32,7 +32,7 @@ LINTER = utils.get_server_info_defaults()["name"]
             "x = [1,   2]",
             {
                 "title": f"{LINTER}: Run document formatting",
-                "command": "editor.action.formatDocument"
+                "command": "editor.action.formatDocument",
             },
         ),
         (
