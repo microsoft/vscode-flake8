@@ -28,6 +28,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E241",
+            "x = [1,   2]",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E273",
             "x = 1 in\t[1, 2, 3]",
             {
