@@ -44,6 +44,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E261",
+            "a = 1 # This comment needs an extra space",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E262",
             "a = 1  #This comment needs a space",
             {
