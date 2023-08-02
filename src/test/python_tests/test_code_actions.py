@@ -28,6 +28,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E202",
+            "print('Closing parentheses should not have any whitespace before them.' )",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E241",
             "x = [1,   2]",
             {
