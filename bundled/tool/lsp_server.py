@@ -126,7 +126,15 @@ def _get_severity(
     code: str, code_type: str, severity: Dict[str, str]
 ) -> lsp.DiagnosticSeverity:
     """Converts severity provided by linter to LSP specific value."""
-    value = severity.get(code, None) or severity.get(code_type, "Error")
+    value = None
+
+    while code and value is None:
+        value = severity.get(code, None)
+        code = code[:-1]
+
+    if value is None:
+        value = severity.get(code_type, "Error")
+
     try:
         return lsp.DiagnosticSeverity[value]
     except KeyError:

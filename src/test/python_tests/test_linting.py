@@ -195,7 +195,7 @@ def test_publish_diagnostics_on_close():
     assert_that(actual, is_(expected))
 
 
-@pytest.mark.parametrize("lint_code", ["F401", "F"])
+@pytest.mark.parametrize("lint_code", ["F401", "F40", "F4", "F"])
 def test_severity_setting(lint_code):
     """Test to ensure linting on file open."""
     contents = TEST_FILE_PATH.read_text()
