@@ -29,7 +29,7 @@ LINTER = utils.get_server_info_defaults()["name"]
         ),
         (
             "E222",
-            "doubled = 10  *  2",
+            "doubled = 10 *  2",
             {
                 "title": f"{LINTER}: Run document formatting",
                 "command": "editor.action.formatDocument",
