@@ -52,6 +52,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E266",
+            "## There should be only one leading # for a block comment.",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E271",
             "from collections import    (namedtuple, defaultdict)",
             {
