@@ -133,7 +133,7 @@ def _get_severity(
         code = code[:-1]
 
     if value is None:
-        severity.get(code_type, "Error")
+        value = severity.get(code_type, "Error")
 
     try:
         return lsp.DiagnosticSeverity[value]
