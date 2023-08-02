@@ -20,6 +20,14 @@ LINTER = utils.get_server_info_defaults()["name"]
     ("code", "contents", "command"),
     [
         (
+            "E201",
+            "print ( 'Open parentheses should not have any space before or after them.')",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E241",
             "x = [1,   2]",
             {
