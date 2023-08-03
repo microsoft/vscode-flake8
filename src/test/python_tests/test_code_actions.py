@@ -116,6 +116,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E251",
+            "def func(key1 = 'val1', key2 = 'val2'):\n\treturn key1, key2",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E242",
             "a,	b = 1, 2",
             {
