@@ -44,6 +44,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E211",
+            "with open ('file.dat') as f:\n\tcontents = f.read()",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E221",
             "doubled = 10  * 2",
             {

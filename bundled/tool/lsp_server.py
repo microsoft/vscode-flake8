@@ -270,6 +270,7 @@ def code_action(params: lsp.CodeActionParams) -> List[lsp.CodeAction]:
         "E201",
         "E202",
         "E203",
+        "E211",
         "E221",
         "E222",
         "E223",
