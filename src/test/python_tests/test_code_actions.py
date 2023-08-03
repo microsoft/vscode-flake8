@@ -100,6 +100,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E231",
+            "my_tuple = 1,2,3",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E241",
             "x = [1,   2]",
             {
