@@ -36,8 +36,104 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E203",
+            "with open('file.dat') as f :\n\tcontents = f.read()",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E211",
+            "with open ('file.dat') as f:\n\tcontents = f.read()",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E221",
+            "doubled = 10  * 2",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E222",
+            "doubled = 10 *  2",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E223",
+            "a\t= 1",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E224",
+            "a =\t1",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E225",
+            "a=1",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E226",
+            "a = 1+2",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E226",
+            "x = 128<<1",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E228",
+            "remainder = 10%2",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E231",
+            "my_tuple = 1,2,3",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E241",
             "x = [1,   2]",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E251",
+            "def func(key1 = 'val1', key2 = 'val2'):\n\treturn key1, key2",
             {
                 "title": f"{LINTER}: Run document formatting",
                 "command": "editor.action.formatDocument",
@@ -52,8 +148,32 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E261",
+            "a = 1 # This comment needs an extra space",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E262",
             "a = 1  #This comment needs a space",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E265",
+            "#This comment needs a space",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
+            "E266",
+            "## There should be only one leading # for a block comment.",
             {
                 "title": f"{LINTER}: Run document formatting",
                 "command": "editor.action.formatDocument",
