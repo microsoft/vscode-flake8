@@ -44,6 +44,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E222",
+            "doubled = 10 *  2",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E228",
             "remainder = 10%2",
             {
