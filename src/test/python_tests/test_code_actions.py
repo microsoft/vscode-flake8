@@ -60,6 +60,14 @@ LINTER = utils.get_server_info_defaults()["name"]
             },
         ),
         (
+            "E224",
+            "a =\t1",
+            {
+                "title": f"{LINTER}: Run document formatting",
+                "command": "editor.action.formatDocument",
+            },
+        ),
+        (
             "E228",
             "remainder = 10%2",
             {
