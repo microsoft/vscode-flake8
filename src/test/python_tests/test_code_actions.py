@@ -5,7 +5,6 @@ Test for code actions over LSP.
 """
 
 import os
-
 from threading import Event
 
 import pytest
@@ -16,7 +15,7 @@ from .lsp_test_client import constants, session, utils
 TEST_FILE_PATH = constants.TEST_DATA / "sample1" / "sample.py"
 TEST_FILE_URI = utils.as_uri(str(TEST_FILE_PATH))
 LINTER = utils.get_server_info_defaults()["name"]
-TIMEOUT = 10 # 10 seconds
+TIMEOUT = 10  # 10 seconds
 
 
 @pytest.mark.parametrize(
