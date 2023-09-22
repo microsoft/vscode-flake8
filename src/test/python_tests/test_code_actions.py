@@ -6,6 +6,8 @@ Test for code actions over LSP.
 
 import os
 
+from threading import Event
+
 import pytest
 from hamcrest import assert_that, is_
 
@@ -14,6 +16,7 @@ from .lsp_test_client import constants, session, utils
 TEST_FILE_PATH = constants.TEST_DATA / "sample1" / "sample.py"
 TEST_FILE_URI = utils.as_uri(str(TEST_FILE_PATH))
 LINTER = utils.get_server_info_defaults()["name"]
+TIMEOUT = 10 # 10 seconds
 
 
 @pytest.mark.parametrize(
@@ -223,10 +226,21 @@ LINTER = utils.get_server_info_defaults()["name"]
 )
 def test_command_code_action(code, contents, command):
     """Tests for code actions which run a command."""
+
+    actual = []
     with utils.python_file(contents, TEST_FILE_PATH.parent) as temp_file:
         uri = utils.as_uri(os.fspath(temp_file))
         with session.LspSession() as ls_session:
             ls_session.initialize()
+
+            done = Event()
+
+            def _handler(params):
+                nonlocal actual
+                actual = params
+                done.set()
+
+            ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
 
             ls_session.notify_did_open(
                 {
@@ -238,6 +252,9 @@ def test_command_code_action(code, contents, command):
                     }
                 }
             )
+
+            # wait for some time to receive all notifications
+            done.wait(TIMEOUT)
 
             diagnostics = [
                 {
