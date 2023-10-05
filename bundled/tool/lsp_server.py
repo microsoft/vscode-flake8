@@ -393,7 +393,7 @@ def _log_version_info() -> None:
 
             # This is text we get from running `flake8 --version`
             # Example:
-            # 5.0.4 (mccabe: 0.7.0, pycodestyle: 2.9.1, pyflakes: 2.5.0) CPython 3.7.7
+            # 5.0.4 (mccabe: 0.7.0, pycodestyle: 2.9.1, pyflakes: 2.5.0) CPython 3.8.7
             # ^---^---- this is the version info we want
             first_line = result.stdout.splitlines(keepends=False)[0]
             actual_version = first_line.split(" ")[0]
