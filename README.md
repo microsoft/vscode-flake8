@@ -4,7 +4,7 @@ A Visual Studio Code extension with support for the `flake8` linter. The extensi
 
 Note:
 
--   This extension is supported for all [actively supported versions](https://devguide.python.org/#status-of-python-branches) of the `python` language (i.e., python >= 3.7).
+-   This extension is supported for all [actively supported versions](https://devguide.python.org/#status-of-python-branches) of the `python` language (i.e., python >= 3.8).
 -   Minimum supported version of `flake8` is `5.0.0`.
 
 ## Usage
