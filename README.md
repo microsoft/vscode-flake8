@@ -1,6 +1,6 @@
 # Flake8 extension for Visual Studio Code
 
-A Visual Studio Code extension with support for the `flake8` linter. The extension ships with `flake8=5.0.4`.
+A Visual Studio Code extension with support for the `flake8` linter. The extension ships with `flake8=6.1.0`.
 
 Note:
 
