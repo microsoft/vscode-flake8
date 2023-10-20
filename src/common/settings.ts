@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import { ConfigurationChangeEvent, ConfigurationScope, WorkspaceConfiguration, WorkspaceFolder } from 'vscode';
-import { traceLog } from './log/logging';
+import { traceLog, traceWarn } from './logging';
 import { getInterpreterDetails } from './python';
 import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
 
@@ -19,6 +19,7 @@ export interface ISettings {
     args: string[];
     severity: Record<string, string>;
     path: string[];
+    ignorePatterns: string[];
     interpreter: string[];
     importStrategy: string;
     showNotifications: string;
@@ -28,7 +29,12 @@ export function getExtensionSettings(namespace: string, includeInterpreter?: boo
     return Promise.all(getWorkspaceFolders().map((w) => getWorkspaceSettings(namespace, w, includeInterpreter)));
 }
 
-function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[] {
+function resolveVariables(
+    value: string[],
+    workspace?: WorkspaceFolder,
+    interpreter?: string[],
+    env?: NodeJS.ProcessEnv,
+): string[] {
     const substitutions = new Map<string, string>();
     const home = process.env.HOME || process.env.USERPROFILE;
     if (home) {
@@ -42,7 +48,25 @@ function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[
         substitutions.set('${workspaceFolder:' + w.name + '}', w.uri.fsPath);
     });
 
-    return value.map((s) => {
+    env = env || process.env;
+    if (env) {
+        for (const [key, value] of Object.entries(env)) {
+            if (value) {
+                substitutions.set('${env:' + key + '}', value);
+            }
+        }
+    }
+
+    const modifiedValue = [];
+    for (const v of value) {
+        if (interpreter && v === '${interpreter}') {
+            modifiedValue.push(...interpreter);
+        } else {
+            modifiedValue.push(v);
+        }
+    }
+
+    return modifiedValue.map((s) => {
         for (const [key, value] of substitutions) {
             s = s.replace(key, value);
         }
@@ -50,51 +74,9 @@ function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[
     });
 }
 
-function getArgs(namespace: string, workspace: WorkspaceFolder): string[] {
-    const config = getConfiguration(namespace, workspace.uri);
-    const args = config.get<string[]>('args', []);
-
-    if (args.length > 0) {
-        return args;
-    }
-
-    const legacyConfig = getConfiguration('python', workspace.uri);
-    const legacyArgs = legacyConfig.get<string[]>('linting.flake8Args', []);
-    if (legacyArgs.length > 0) {
-        traceLog('Using legacy Flake8 args from `python.linting.flake8Args`');
-        return legacyArgs;
-    }
-
-    return [];
-}
-
-function getPath(namespace: string, workspace: WorkspaceFolder): string[] {
-    const config = getConfiguration(namespace, workspace.uri);
-    const path = config.get<string[]>('path', []);
-
-    if (path.length > 0) {
-        return path;
-    }
-
-    const legacyConfig = getConfiguration('python', workspace.uri);
-    const legacyPath = legacyConfig.get<string>('linting.flake8Path', '');
-    if (legacyPath.length > 0 && legacyPath !== 'flake8') {
-        traceLog('Using legacy Flake8 path from `python.linting.flake8Path`');
-        return [legacyPath];
-    }
-    return [];
-}
-
-function getCwd(workspace: WorkspaceFolder): string {
-    const legacyConfig = getConfiguration('python', workspace.uri);
-    const legacyCwd = legacyConfig.get<string>('linting.cwd');
-
-    if (legacyCwd) {
-        traceLog('Using cwd from `python.linting.cwd`.');
-        return resolveVariables([legacyCwd], workspace)[0];
-    }
-
-    return workspace.uri.fsPath;
+function getCwd(config: WorkspaceConfiguration, workspace: WorkspaceFolder): string {
+    const cwd = config.get<string>('cwd', workspace.uri.fsPath);
+    return resolveVariables([cwd], workspace)[0];
 }
 
 export function getInterpreterFromSetting(namespace: string, scope?: ConfigurationScope) {
@@ -107,26 +89,39 @@ export async function getWorkspaceSettings(
     workspace: WorkspaceFolder,
     includeInterpreter?: boolean,
 ): Promise<ISettings> {
-    const config = getConfiguration(namespace, workspace.uri);
+    const config = getConfiguration(namespace, workspace);
 
     let interpreter: string[] = [];
     if (includeInterpreter) {
         interpreter = getInterpreterFromSetting(namespace, workspace) ?? [];
         if (interpreter.length === 0) {
+            traceLog(`No interpreter found from setting ${namespace}.interpreter`);
+            traceLog(`Getting interpreter from ms-python.python extension for workspace ${workspace.uri.fsPath}`);
             interpreter = (await getInterpreterDetails(workspace.uri)).path ?? [];
+            if (interpreter.length > 0) {
+                traceLog(
+                    `Interpreter from ms-python.python extension for ${workspace.uri.fsPath}:`,
+                    `${interpreter.join(' ')}`,
+                );
+            }
+        } else {
+            traceLog(`Interpreter from setting ${namespace}.interpreter: ${interpreter.join(' ')}`);
+        }
+
+        if (interpreter.length === 0) {
+            traceLog(`No interpreter found for ${workspace.uri.fsPath} in settings or from ms-python.python extension`);
         }
     }
 
-    const args = getArgs(namespace, workspace);
-    const path = getPath(namespace, workspace);
     const workspaceSetting = {
-        cwd: getCwd(workspace),
+        cwd: getCwd(config, workspace),
         workspace: workspace.uri.toString(),
-        args: resolveVariables(args, workspace),
+        args: resolveVariables(config.get<string[]>('args', []), workspace),
         severity: config.get<Record<string, string>>('severity', DEFAULT_SEVERITY),
-        path: resolveVariables(path, workspace),
+        path: resolveVariables(config.get<string[]>('path', []), workspace, interpreter),
+        ignorePatterns: resolveVariables(config.get<string[]>('ignorePatterns', []), workspace),
         interpreter: resolveVariables(interpreter, workspace),
-        importStrategy: config.get<string>('importStrategy', 'fromEnvironment'),
+        importStrategy: config.get<string>('importStrategy', 'useBundled'),
         showNotifications: config.get<string>('showNotifications', 'off'),
     };
     return workspaceSetting;
@@ -140,20 +135,21 @@ function getGlobalValue<T>(config: WorkspaceConfiguration, key: string, defaultV
 export async function getGlobalSettings(namespace: string, includeInterpreter?: boolean): Promise<ISettings> {
     const config = getConfiguration(namespace);
 
-    let interpreter: string[] | undefined = [];
+    let interpreter: string[] = [];
     if (includeInterpreter) {
         interpreter = getGlobalValue<string[]>(config, 'interpreter', []);
         if (interpreter === undefined || interpreter.length === 0) {
-            interpreter = (await getInterpreterDetails()).path;
+            interpreter = (await getInterpreterDetails()).path ?? [];
         }
     }
 
     const setting = {
-        cwd: process.cwd(),
+        cwd: getGlobalValue<string>(config, 'cwd', process.cwd()),
         workspace: process.cwd(),
         args: getGlobalValue<string[]>(config, 'args', []),
         severity: getGlobalValue<Record<string, string>>(config, 'severity', DEFAULT_SEVERITY),
         path: getGlobalValue<string[]>(config, 'path', []),
+        ignorePatterns: getGlobalValue<string[]>(config, 'ignorePatterns', []),
         interpreter: interpreter ?? [],
         importStrategy: getGlobalValue<string>(config, 'importStrategy', 'fromEnvironment'),
         showNotifications: getGlobalValue<string>(config, 'showNotifications', 'off'),
@@ -164,12 +160,56 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
 export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespace: string): boolean {
     const settings = [
         `${namespace}.args`,
+        `${namespace}.cwd`,
         `${namespace}.severity`,
         `${namespace}.path`,
         `${namespace}.interpreter`,
         `${namespace}.importStrategy`,
         `${namespace}.showNotifications`,
+        `${namespace}.ignorePatterns`,
     ];
     const changed = settings.map((s) => e.affectsConfiguration(s));
     return changed.includes(true);
+}
+
+export function logLegacySettings(): void {
+    getWorkspaceFolders().forEach((workspace) => {
+        try {
+            const legacyConfig = getConfiguration('python', workspace.uri);
+
+            const legacyFlake8Enabled = legacyConfig.get<boolean>('linting.flake8Enabled', false);
+            if (legacyFlake8Enabled) {
+                traceWarn(`"python.linting.flake8Enabled" is deprecated. You can remove that setting.`);
+                traceWarn(
+                    'The flake8 extension is always enabled. However, you can disable it per workspace using the extensions view.',
+                );
+                traceWarn('You can exclude files and folders using the `python.linting.ignorePatterns` setting.');
+                traceWarn(
+                    `"python.linting.flake8Enabled" value for workspace ${workspace.uri.fsPath}: ${legacyFlake8Enabled}`,
+                );
+            }
+
+            const legacyCwd = legacyConfig.get<string>('linting.cwd');
+            if (legacyCwd) {
+                traceWarn(`"python.linting.cwd" is deprecated. Use "flake8.cwd" instead.`);
+                traceWarn(`"python.linting.cwd" value for workspace ${workspace.uri.fsPath}: ${legacyCwd}`);
+            }
+
+            const legacyArgs = legacyConfig.get<string[]>('linting.flake8Args', []);
+            if (legacyArgs.length > 0) {
+                traceWarn(`"python.linting.flake8Args" is deprecated. Use "flake8.args" instead.`);
+                traceWarn(`"python.linting.flake8Args" value for workspace ${workspace.uri.fsPath}:`);
+                traceWarn(`\n${JSON.stringify(legacyArgs, null, 4)}`);
+            }
+
+            const legacyPath = legacyConfig.get<string>('linting.flake8Path', '');
+            if (legacyPath.length > 0 && legacyPath !== 'flake8') {
+                traceWarn(`"python.linting.flake8Path" is deprecated. Use "flake8.path" instead.`);
+                traceWarn(`"python.linting.flake8Path" value for workspace ${workspace.uri.fsPath}:`);
+                traceWarn(`\n${JSON.stringify(legacyPath, null, 4)}`);
+            }
+        } catch (err) {
+            traceWarn(`Error while logging legacy settings: ${err}`);
+        }
+    });
 }

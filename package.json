@@ -83,6 +83,32 @@
                     "scope": "resource",
                     "type": "array"
                 },
+                "flake8.cwd": {
+                    "default": "${workspaceFolder}",
+                    "description": "%settings.cwd.description%",
+                    "scope": "resource",
+                    "type": "string",
+                    "examples": [
+                        "${workspaceFolder}/src",
+                        "${fileDirname}"
+                    ]
+                },
+                "flake8.ignorePatterns": {
+                    "default": [],
+                    "description": "%settings.ignorePatterns.description%",
+                    "items": {
+                        "type": "string"
+                    },
+                    "scope": "resource",
+                    "type": "array",
+                    "uniqueItems": true,
+                    "examples": [
+                        [
+                            "**/site-packages/**/*.py",
+                            ".vscode/*.py"
+                        ]
+                    ]
+                },
                 "flake8.importStrategy": {
                     "default": "useBundled",
                     "description": "%settings.importStrategy.description%",

@@ -3,20 +3,20 @@
 
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { registerLogger, traceError, traceLog, traceVerbose } from './common/log/logging';
-import {
-    checkVersion,
-    getInterpreterDetails,
-    initializePython,
-    onDidChangePythonInterpreter,
-    resolveInterpreter,
-    runPythonExtensionCommand,
-} from './common/python';
+import { registerLogger, traceError, traceLog, traceVerbose } from './common/logging';
+import { initializePython, onDidChangePythonInterpreter } from './common/python';
 import { restartServer } from './common/server';
-import { checkIfConfigurationChanged, getInterpreterFromSetting } from './common/settings';
+import {
+    checkIfConfigurationChanged,
+    getInterpreterFromSetting,
+    getWorkspaceSettings,
+    logLegacySettings,
+} from './common/settings';
 import { loadServerDefaults } from './common/setup';
 import { getLSClientTraceLevel, getProjectRoot } from './common/utilities';
 import { createOutputChannel, onDidChangeConfiguration, registerCommand } from './common/vscodeapi';
+import { registerLanguageStatusItem, updateStatus } from './common/status';
+import { PYTHON_VERSION } from './common/constants';
 
 let lsClient: LanguageClient | undefined;
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -49,30 +49,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     traceVerbose(`Configuration: ${JSON.stringify(serverInfo)}`);
 
     const runServer = async () => {
-        const interpreter = getInterpreterFromSetting(serverId);
-        if (interpreter && interpreter.length > 0 && checkVersion(await resolveInterpreter(interpreter))) {
-            traceVerbose(`Using interpreter from ${serverInfo.module}.interpreter: ${interpreter.join(' ')}`);
-            lsClient = await restartServer(serverId, serverName, outputChannel, lsClient);
-            return;
+        const projectRoot = await getProjectRoot();
+        const workspaceSetting = await getWorkspaceSettings(serverId, projectRoot, true);
+        if (workspaceSetting.interpreter.length === 0) {
+            updateStatus(vscode.l10n.t('Please select a Python interpreter.'), vscode.LanguageStatusSeverity.Error);
+            traceError(
+                'Python interpreter missing:\r\n' +
+                    '[Option 1] Select python interpreter using the ms-python.python.\r\n' +
+                    `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n`,
+                `Please use Python ${PYTHON_VERSION} or greater.`,
+            );
+        } else {
+            lsClient = await restartServer(workspaceSetting, serverId, serverName, outputChannel, lsClient);
         }
-
-        const interpreterDetails = await getInterpreterDetails();
-        if (interpreterDetails.path) {
-            traceVerbose(`Using interpreter from Python extension: ${interpreterDetails.path.join(' ')}`);
-            lsClient = await restartServer(serverId, serverName, outputChannel, lsClient);
-            return;
-        }
-
-        traceError(
-            'Python interpreter missing:\r\n' +
-                '[Option 1] Select python interpreter using the ms-python.python.\r\n' +
-                `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n` +
-                'Please use Python 3.8 or greater.',
-        );
     };
 
     context.subscriptions.push(
         onDidChangePythonInterpreter(async () => {
+            await runServer();
+        }),
+        registerCommand(`${serverId}.showLogs`, async () => {
+            outputChannel.show();
+        }),
+        registerCommand(`${serverId}.restart`, async () => {
             await runServer();
         }),
         onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
@@ -80,10 +79,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 await runServer();
             }
         }),
-        registerCommand(`${serverId}.restart`, async () => {
-            await runServer();
-        }),
+        registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
     );
+
+    // This is needed to inform users that they might have some legacy settings that
+    // are no longer supported. Instructions are printed in the output channel on how
+    // to update them.
+    logLegacySettings();
 
     setImmediate(async () => {
         const interpreter = getInterpreterFromSetting(serverId);
