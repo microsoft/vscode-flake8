@@ -5,6 +5,7 @@ Test for linting over LSP.
 """
 
 from threading import Event
+from typing import List
 
 import pytest
 from hamcrest import assert_that, greater_than, is_
@@ -202,9 +203,10 @@ def test_severity_setting(lint_code):
 
     actual = []
     with session.LspSession() as ls_session:
-        init_options = defaults.VSCODE_DEFAULT_INITIALIZE["initializationOptions"]
+        default_init = defaults.vscode_initialize_defaults()
+        init_options = default_init["initializationOptions"]
         init_options["settings"][0]["severity"][lint_code] = "Warning"
-        ls_session.initialize(defaults.VSCODE_DEFAULT_INITIALIZE)
+        ls_session.initialize(default_init)
 
         done = Event()
 
@@ -249,6 +251,127 @@ def test_severity_setting(lint_code):
                 },
                 "message": "undefined name 'x'",
                 "severity": 2 if lint_code == "F" else 1,
+                "code": "F821",
+                "source": LINTER["name"],
+            },
+        ],
+    }
+
+    assert_that(actual, is_(expected))
+
+
+@pytest.mark.parametrize(
+    "patterns",
+    [
+        ["**/sample*.py"],
+        ["**/test_data/**/*.py"],
+        ["**/sample*.py", "**/something*.py"],
+    ],
+)
+def test_ignore_patterns_match(patterns: List[str]):
+    """Test to ensure linter uses the ignore pattern."""
+    contents = TEST_FILE_PATH.read_text(encoding="utf-8")
+
+    actual = []
+    with session.LspSession() as ls_session:
+        default_init = defaults.vscode_initialize_defaults()
+        init_options = default_init["initializationOptions"]
+        init_options["settings"][0]["ignorePatterns"] = patterns
+        ls_session.initialize(default_init)
+
+        done = Event()
+
+        def _handler(params):
+            nonlocal actual
+            actual = params
+            done.set()
+
+        ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
+
+        ls_session.notify_did_open(
+            {
+                "textDocument": {
+                    "uri": TEST_FILE_URI,
+                    "languageId": "python",
+                    "version": 1,
+                    "text": contents,
+                }
+            }
+        )
+
+        # wait for some time to receive all notifications
+        done.wait(TIMEOUT)
+
+    expected = {
+        "uri": TEST_FILE_URI,
+        "diagnostics": [],
+    }
+
+    assert_that(actual, is_(expected))
+
+
+@pytest.mark.parametrize(
+    "patterns",
+    [
+        ["**/something*.py"],
+        ["**/something/**/*.py"],
+        [],
+    ],
+)
+def test_ignore_patterns_no_match(patterns: List[str]):
+    """Test to ensure linter uses the ignore pattern."""
+    contents = TEST_FILE_PATH.read_text(encoding="utf-8")
+
+    actual = []
+    with session.LspSession() as ls_session:
+        default_init = defaults.vscode_initialize_defaults()
+        init_options = default_init["initializationOptions"]
+        init_options["settings"][0]["ignorePatterns"] = patterns
+        ls_session.initialize(default_init)
+
+        done = Event()
+
+        def _handler(params):
+            nonlocal actual
+            actual = params
+            done.set()
+
+        ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
+
+        ls_session.notify_did_open(
+            {
+                "textDocument": {
+                    "uri": TEST_FILE_URI,
+                    "languageId": "python",
+                    "version": 1,
+                    "text": contents,
+                }
+            }
+        )
+
+        # wait for some time to receive all notifications
+        done.wait(TIMEOUT)
+
+    expected = {
+        "uri": TEST_FILE_URI,
+        "diagnostics": [
+            {
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 0},
+                },
+                "message": "'sys' imported but unused",
+                "severity": 1,
+                "code": "F401",
+                "source": LINTER["name"],
+            },
+            {
+                "range": {
+                    "start": {"line": 2, "character": 6},
+                    "end": {"line": 2, "character": 6},
+                },
+                "message": "undefined name 'x'",
+                "severity": 1,
                 "code": "F821",
                 "source": LINTER["name"],
             },

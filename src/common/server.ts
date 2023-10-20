@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import * as fsapi from 'fs-extra';
-import { Disposable, env, LogOutputChannel, WorkspaceFolder } from 'vscode';
+import { Disposable, env, l10n, LanguageStatusSeverity, LogOutputChannel } from 'vscode';
 import { State } from 'vscode-languageclient';
 import {
     LanguageClient,
@@ -11,11 +11,11 @@ import {
     ServerOptions,
 } from 'vscode-languageclient/node';
 import { DEBUG_SERVER_SCRIPT_PATH, SERVER_SCRIPT_PATH } from './constants';
-import { traceError, traceInfo, traceVerbose } from './log/logging';
+import { traceError, traceInfo, traceVerbose } from './logging';
 import { getDebuggerPath } from './python';
-import { getExtensionSettings, getGlobalSettings, getWorkspaceSettings, ISettings } from './settings';
-import { getLSClientTraceLevel, getProjectRoot } from './utilities';
-import { isVirtualWorkspace } from './vscodeapi';
+import { getExtensionSettings, getGlobalSettings, ISettings } from './settings';
+import { getLSClientTraceLevel, getDocumentSelector } from './utilities';
+import { updateStatus } from './status';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 
@@ -29,7 +29,7 @@ async function createServer(
     const command = settings.interpreter[0];
     const cwd = settings.cwd;
 
-    // Set debugger path needed for debugging python code.
+    // Set debugger path needed for debugging Python code.
     const newEnv = { ...process.env };
     const debuggerPath = await getDebuggerPath();
     const isDebugScript = await fsapi.pathExists(DEBUG_SERVER_SCRIPT_PATH);
@@ -45,6 +45,8 @@ async function createServer(
     // Set notification type
     newEnv.LS_SHOW_NOTIFICATION = settings.showNotifications;
 
+    newEnv.PYTHONUTF8 = '1';
+
     const args =
         newEnv.USE_DEBUGPY === 'False' || !isDebugScript
             ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])
@@ -59,15 +61,8 @@ async function createServer(
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
-        // Register the server for python documents
-        documentSelector: isVirtualWorkspace()
-            ? [{ language: 'python' }]
-            : [
-                  { scheme: 'file', language: 'python' },
-                  { scheme: 'untitled', language: 'python' },
-                  { scheme: 'vscode-notebook', language: 'python' },
-                  { scheme: 'vscode-notebook-cell', language: 'python' },
-              ],
+        // Register the server for Python documents
+        documentSelector: getDocumentSelector(),
         outputChannel: outputChannel,
         traceOutputChannel: outputChannel,
         revealOutputChannelOn: RevealOutputChannelOn.Never,
@@ -79,6 +74,7 @@ async function createServer(
 
 let _disposables: Disposable[] = [];
 export async function restartServer(
+    workspaceSetting: ISettings,
     serverId: string,
     serverName: string,
     outputChannel: LogOutputChannel,
@@ -86,25 +82,21 @@ export async function restartServer(
 ): Promise<LanguageClient | undefined> {
     if (lsClient) {
         traceInfo(`Server: Stop requested`);
-        await lsClient.stop();
+        try {
+            await lsClient.stop();
+        } catch (ex) {
+            traceError(`Server: Stop failed: ${ex}`);
+        }
         _disposables.forEach((d) => d.dispose());
         _disposables = [];
     }
-    const projectRoot = await getProjectRoot();
-    const workspaceSetting = await getWorkspaceSettings(serverId, projectRoot, true);
-    if (workspaceSetting.interpreter.length === 0) {
-        traceError(
-            'Python interpreter missing:\r\n' +
-                '[Option 1] Select python interpreter using the ms-python.python.\r\n' +
-                `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n`,
-        );
-        return undefined;
-    }
+    updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
     const newLSClient = await createServer(workspaceSetting, serverId, serverName, outputChannel, {
         settings: await getExtensionSettings(serverId, true),
         globalSettings: await getGlobalSettings(serverId, false),
     });
+
     traceInfo(`Server: Start requested.`);
     _disposables.push(
         newLSClient.onDidChangeState((e) => {
@@ -117,11 +109,18 @@ export async function restartServer(
                     break;
                 case State.Running:
                     traceVerbose(`Server State: Running`);
+                    updateStatus(undefined, LanguageStatusSeverity.Information, false);
                     break;
             }
         }),
     );
-    await newLSClient.start();
-    await newLSClient.setTrace(getLSClientTraceLevel(outputChannel.logLevel, env.logLevel));
+    try {
+        await newLSClient.start();
+        await newLSClient.setTrace(getLSClientTraceLevel(outputChannel.logLevel, env.logLevel));
+    } catch (ex) {
+        updateStatus(l10n.t('Server failed to start.'), LanguageStatusSeverity.Error);
+        traceError(`Server: Start failed: ${ex}`);
+    }
+
     return newLSClient;
 }
