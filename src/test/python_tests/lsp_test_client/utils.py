@@ -27,12 +27,12 @@ def as_uri(path: str) -> str:
 
 @contextlib.contextmanager
 def python_file(contents: str, root: pathlib.Path, ext: str = ".py"):
-    """Creates a temporary python file."""
+    """Creates a temporary Python file."""
+    basename = (
+        "".join(random.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(9)) + ext
+    )
+    fullpath = root / basename
     try:
-        basename = (
-            "".join(random.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(9)) + ext
-        )
-        fullpath = root / basename
         fullpath.write_text(contents)
         yield fullpath
     finally:
@@ -64,5 +64,6 @@ def get_initialization_options():
     setting["workspace"] = as_uri(str(PROJECT_ROOT))
     setting["interpreter"] = []
     setting["cwd"] = str(PROJECT_ROOT)
+    setting["extraPaths"] = []
 
     return {"settings": [setting], "globalSettings": setting}
