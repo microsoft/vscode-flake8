@@ -1,34 +1,121 @@
 # Flake8 extension for Visual Studio Code
 
-A Visual Studio Code extension with support for the `flake8` linter. The extension ships with `flake8=6.1.0`.
+A Visual Studio Code extension with support for the Flake8 linter. The extension ships with `flake8=6.1.0`.
 
-Note:
+> **Note**: The minimum version of Flake8 this extension supports is 5.0.0.
 
--   This extension is supported for all [actively supported versions](https://devguide.python.org/#status-of-python-branches) of the `python` language (i.e., python >= 3.8).
+This extension supports all [actively supported versions](https://devguide.python.org/#status-of-python-branches) of the Python language (i.e., Python >= 3.8).
+
+For more information on Flake8, see https://flake8.pycqa.org/
+
+-   This extension is supported for all  of the `python` language (i.e., python >= 3.8).
 -   Minimum supported version of `flake8` is `5.0.0`.
 
-## Usage
+## Usage and Features 
 
-Once installed in Visual Studio Code, flake8 will be automatically executed when you open a Python file.
+The Flake8 extension provides a series of features to help your productivity while working with Python code in Visual Studio Code. Check out the [Settings section](#settings) below for more details on how to customize the extension.
 
-If you want to disable flake8, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) per workspace in Visual Studio Code.
+-   **Integrated Linting**: Once this extension is installed in Visual Studio Code, Flake8 is automatically executed when you open a Python file, providing immediate feedback on your code quality.
+-   **Customizable Flake8 Version**: By default, this extension uses the version of Flake8 that is shipped with the extension. However, you can configure it to use a different binary installed in your environment through the `flake8.importStrategy` setting, or set it to a custom Flake8 executable through the `flake8.path` settings.
+-   **Mono repo support**: If you are working with a mono repo, you can configure the extension to lint Python files in subfolders of the workspace root folder by setting the `flake8.cwd` setting to `${fileDirname}`. You can also set it to ignore/skip linting for certain files or folder paths by specifying a glob pattern to the `flake8.ignorePatterns` setting.
+-   **Customizable Linting Rules**: You can customize the severity of specific Flake8 error codes through the `flake8.severity` setting.
+
+### Disabling Flake8
+
+You can skip linting with Flake8 for specific files or directories by setting the `flake8.ignorePatterns` setting.
+
+But if you wish to disable linting with Flake8 for your entire workspace or globally, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) in Visual Studio Code.
 
 ## Settings
 
-| Settings                | Default                                                                                                                                | Description                                                                                                                                                                                                                                                                                                              |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| flake8.args             | `[]`                                                                                                                                   | Custom arguments passed to `flake8`. E.g `"flake8.args" = ["--config=<file>"]`                                                                                                                                                                                                                                           |
-| flake8.cwd              | `${workspaceFolder}`                                                                                                                   | This setting specifies the working directory for `flake8`. By default, it uses the root directory of the workspace `${workspaceFolder}`. If you want `flake8` to operate within the directory of the file currently being linted, you can set this to `${fileDirname}`.                                                  |
-| flake8.severity         | `{ "convention": "Information", "error": "Error", "fatal": "Error", "refactor": "Hint", "warning": "Warning", "info": "Information" }` | Controls mapping of severity from `flake8` to VS Code severity when displaying in the problems window. You can override specific `flake8` error codes `{ "convention": "Information", "error": "Error", "fatal": "Error", "refactor": "Hint", "warning": "Warning", "W0611": "Error", "undefined-variable": "Warning" }` |
-| flake8.logLevel         | `error`                                                                                                                                | Sets the tracing level for the extension.                                                                                                                                                                                                                                                                                |
-| flake8.path             | `[]`                                                                                                                                   | Setting to provide custom `flake8` executable. This will slow down linting, since we will have to run `flake8` executable every time or file save or open. Example 1: `["~/global_env/flake8"]` Example 2: `["conda", "run", "-n", "lint_env", "python", "-m", "flake8"]`                                                |
-| flake8.interpreter      | `[]`                                                                                                                                   | Path to a python interpreter to use to run the linter server. When set to `[]`, the interpreter for the workspace is obtained from `ms-python.python` extension. If set to some path, that path takes precedence, and the Python extension is not queried for the interpreter.                                           |
-| flake8.importStrategy   | `useBundled`                                                                                                                           | Setting to choose where to load `flake8` from. `useBundled` picks flake8 bundled with the extension. `fromEnvironment` uses `flake8` available in the environment.                                                                                                                                                       |
-| flake8.showNotification | `off`                                                                                                                                  | Setting to control when a notification is shown.                                                                                                                                                                                                                                                                         |
-| flake8.ignorePatterns   | `[]`                                                                                                                                   | Glob patterns used to exclude files and directories from being linted.                                                                                                                                                                                                                                                   |
+There are several settings you can configure to customize the behavior of this extension.
+<table>
+    <thead>
+        <tr>
+            <th>Settings</th>
+            <th>Default</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>flake8.args</td>
+            <td><code>[]</code></td>
+            <td>Arguments passed to Flake8 for linting Python files. Each argument should be provided as a separate string in the array. <br> Example: <code>"flake8.args": ["--config=<file>"] </code></td>
+        </tr>
+        <tr>
+            <td>flake8.cwd</td>
+            <td><code>${workspaceFolder}</code></td>
+            <td>Sets the current working directory used to lint Python files with Flake8. By default, it uses the root directory of the workspace <code>${workspaceFolder}</code>. You can set it to <code>${fileDirname}</code> to use the parent folder of the file being linted as the working directory for Flake8.</td>
+        </tr>
+        <tr>
+            <td>flake8.severity</td>
+            <td><code>{ "convention": "Information", "error": "Error", "fatal": "Error", "refactor": "Hint", "warning": "Warning", "info": "Information" }</code></td>
+            <td>Mapping of Flake8's message types to VS Code's diagnostic severity levels as displayed in the Problems window. You can also use it to override specific Flake8 error codes. <br> Example: <code>{ "convention": "Information", "error": "Error", "fatal": "Error", "refactor": "Hint", "warning": "Warning", "W0611": "Error", "undefined-variable": "Warning" }</code></td>
+        </tr>
+        <tr>
+            <td>flake8.path</td>
+            <td><code>[]</code></td>
+            <td>"Path or command to be used by the extension to lint Python files with Flake8. Accepts an array of a single or multiple strings. If passing a command, each argument should be provided as a separate string in the array. If set to <code>["flake8"]</code>, it will use the version of Flake8 available in the PATH environment variable. <br> Note: Using this option may slowdown linting. <br>Examples: <br>- <code>"flake8.path" : ["~/global_env/flake8"]</code> <br>- <code>"flake8.path" : ["conda", "run", "-n", "lint_env", "python", "-m", "flake8"]</code> <br>- <code>"flake8.path" : ["flake8"]</code> <br>- <code>"flake8.path" : ["${interpreter}", "-m", "flake8"]</code></td>
+        </tr>
+        <tr>
+            <td>flake8.interpreter</td>
+            <td><code>[]</code></td>
+            <td>Path to a Python executable or a command that will be used to launch the Flake8 server and any subprocess. Accepts an array of a single or multiple strings. When set to <code>[]</code>, the extension will use the path to the selected Python interpreter. If passing a command, each argument should be provided as a separate string in the array.</td>
+        </tr>
+        <tr>
+            <td>flake8.importStrategy</td>
+            <td><code>useBundled</code></td>
+            <td>Defines which Flake8 binary to be used to lint Python files. When set to useBundled, the extension will use the Flake8 binary that is shipped with the extension. When set to fromEnvironment, the extension will attempt to use the Flake8 binary and all dependencies that are available in the currently selected environment. <br> Note: If the extension can't find a valid Flake8 binary in the selected environment, it will fallback to using the Flake8 binary that is shipped with the extension. This setting will be overriden if <code>flake8.path</code> is set.</td>
+        </tr>
+        <tr>
+            <td>flake8.showNotification</td>
+            <td><code>off</code></td>
+            <td>Controls when notifications are shown by this extension. Accepted values are onError, onWarning, always and off.</td>
+        </tr>
+        <tr>
+            <td>flake8.lintOnChange</td>
+            <td><code>false</code></td>
+            <td>Enable linting Python files with Flake8 as you type.</td>
+        </tr>
+        <tr>
+            <td>flake8.ignorePatterns</td>
+            <td><code>[]</code></td>
+            <td>Configure [glob patterns](https://docs.python.org/3/library/fnmatch.html) as supported by the fnmatch Python library to exclude files or folders from being linted with Flake8.</td>
+        </tr>
+    </tbody>
+</table>
+
+The following variables are supported for substitution in the `flake8.args`, `flake8.cwd`, `flake8.path`, `flake8.interpreter` and `flake8.ignorePatterns` settings:
+
+-   `${workspaceFolder}`
+-   `${workspaceFolder:FolderName}`
+-   `${userHome}`
+-   `${env:EnvVarName}`
+
+The `flake8.path` setting also supports the `${interpreter}` variable as one of the entries of the array. This variable is subtituted based on the value of the `flake8.interpreter` setting.
 
 ## Commands
 
 | Command                | Description                       |
 | ---------------------- | --------------------------------- |
 | Flake8: Restart Server | Force re-start the linter server. |
+
+## Logging
+
+From the Command Palette (**View** > **Command Palette ...**), run the **Developer: Set Log Level...** command. Select **Flake8** from the **Extension logs** group. Then select the log level you want to set.
+
+Alternatively, you can set the `flake8.trace.server` setting to `verbose` to get more detailed logs from the Flake8 server. This can be helpful when filing bug reports.
+
+To open the logs, click on the language status icon (`{}`) on the bottom right of the Status bar, next to the Python language mode. Locate the **Flake8** entry and select **Open logs**.
+
+## Troubleshooting
+
+In this section, you will find some common issues you might encounter and how to resolve them. If you are experiencing any issues that are not covered here, please [file an issue](https://github.com/microsoft/vscode-flake8/issues).
+
+-   If the `flake8.importStrategy` setting is set to `fromEnvironment` but Flake8 is not found in the selected environment, this extension will fallback to using the Flake8 binary that is shipped with the extension. However, if there are dependencies installed in the environment, those dependencies will be used along with the shipped Flake8 binary. This can lead to problems if the dependencies are not compatible with the shipped Flake8 binary.
+
+    To resolve this issue, you can:
+
+    -   Set the `flake8.importStrategy` setting to `useBundled` and the `flake8.path` setting to point to the custom binary of Flake8 you want to use; or
+    -   Install Flake8 in the selected environment.
