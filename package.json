@@ -76,7 +76,7 @@
             "properties": {
                 "flake8.args": {
                     "default": [],
-                    "description": "%settings.args.description%",
+                    "markdownDescription": "%settings.args.description%",
                     "items": {
                         "type": "string"
                     },
@@ -85,7 +85,7 @@
                 },
                 "flake8.cwd": {
                     "default": "${workspaceFolder}",
-                    "description": "%settings.cwd.description%",
+                    "markdownDescription": "%settings.cwd.description%",
                     "scope": "resource",
                     "type": "string",
                     "examples": [
@@ -95,7 +95,7 @@
                 },
                 "flake8.ignorePatterns": {
                     "default": [],
-                    "description": "%settings.ignorePatterns.description%",
+                    "markdownDescription": "%settings.ignorePatterns.description%",
                     "items": {
                         "type": "string"
                     },
@@ -111,7 +111,7 @@
                 },
                 "flake8.importStrategy": {
                     "default": "useBundled",
-                    "description": "%settings.importStrategy.description%",
+                    "markdownDescription": "%settings.importStrategy.description%",
                     "enum": [
                         "useBundled",
                         "fromEnvironment"
@@ -125,7 +125,7 @@
                 },
                 "flake8.interpreter": {
                     "default": [],
-                    "description": "%settings.interpreter.description%",
+                    "markdownDescription": "%settings.interpreter.description%",
                     "scope": "resource",
                     "items": {
                         "type": "string"
@@ -134,7 +134,7 @@
                 },
                 "flake8.path": {
                     "default": [],
-                    "description": "%settings.path.description%",
+                    "markdownDescription": "%settings.path.description%",
                     "scope": "resource",
                     "items": {
                         "type": "string"
@@ -167,13 +167,13 @@
                             "Warning"
                         ]
                     },
-                    "description": "%settings.severity.description%",
+                    "markdownDescription": "%settings.severity.description%",
                     "scope": "resource",
                     "type": "object"
                 },
                 "flake8.showNotifications": {
                     "default": "off",
-                    "description": "%settings.showNotifications.description%",
+                    "markdownDescription": "%settings.showNotifications.description%",
                     "enum": [
                         "off",
                         "onError",
