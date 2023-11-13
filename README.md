@@ -8,7 +8,6 @@ This extension supports all [actively supported versions](https://devguide.pytho
 
 For more information on Flake8, see https://flake8.pycqa.org/
 
--   This extension is supported for all  of the `python` language (i.e., python >= 3.8).
 -   Minimum supported version of `flake8` is `5.0.0`.
 
 ## Usage and Features 
