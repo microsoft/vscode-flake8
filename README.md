@@ -13,7 +13,7 @@ For more information on Flake8, see https://flake8.pycqa.org/
 
 ## Usage and Features 
 
-The Flake8 extension provides a series of features to help your productivity while working with Python code in Visual Studio Code. Check out the [Settings section](#settings) below for more details on how to customize the extension.
+The Flake8 extension provides features to improve your productivity while working on Python code in Visual Studio Code. Check out the [Settings section](#settings) below for more details on how to customize the extension.
 
 -   **Integrated Linting**: Once this extension is installed in Visual Studio Code, Flake8 is automatically executed when you open a Python file, providing immediate feedback on your code quality.
 -   **Customizable Flake8 Version**: By default, this extension uses the version of Flake8 that is shipped with the extension. However, you can configure it to use a different binary installed in your environment through the `flake8.importStrategy` setting, or set it to a custom Flake8 executable through the `flake8.path` settings.
@@ -24,7 +24,7 @@ The Flake8 extension provides a series of features to help your productivity whi
 
 You can skip linting with Flake8 for specific files or directories by setting the `flake8.ignorePatterns` setting.
 
-But if you wish to disable linting with Flake8 for your entire workspace or globally, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) in Visual Studio Code.
+If you wish to disable linting with Flake8 for your entire workspace or globally, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) in Visual Studio Code.
 
 ## Settings
 
