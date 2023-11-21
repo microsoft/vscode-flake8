@@ -207,11 +207,11 @@ def validate_readme(session: nox.Session) -> None:
     linter_ver = list(line for line in lines if line.startswith(module))[0]
     name, version = linter_ver.split(" ")[0].split("==")
 
-    session.log(f"Looking for {name}={version} in README.md")
+    session.log(f"Looking for {name}=={version} in README.md")
     content = readme_file.read_text(encoding="utf-8")
-    if f"{name}={version}" not in content:
-        raise ValueError(f"Linter info {name}={version} was not found in README.md.")
-    session.log(f"FOUND {name}={version} in README.md")
+    if f"{name}=={version}" not in content:
+        raise ValueError(f"Linter info {name}=={version} was not found in README.md.")
+    session.log(f"FOUND {name}=={version} in README.md")
 
 
 def _update_readme() -> None:
@@ -223,8 +223,8 @@ def _update_readme() -> None:
 
     readme_file = pathlib.Path(__file__).parent / "README.md"
     content = readme_file.read_text(encoding="utf-8")
-    regex = r"\`([a-zA-Z0-9]+)=([0-9]+\.[0-9]+\.[0-9]+)\`"
-    result = re.sub(regex, f"`{module}={version}`", content, 0, re.MULTILINE)
+    regex = r"\`([a-zA-Z0-9]+)==([0-9]+\.[0-9]+\.[0-9]+)\`"
+    result = re.sub(regex, f"`{module}=={version}`", content, 0, re.MULTILINE)
     content = readme_file.write_text(result, encoding="utf-8")
 
 
