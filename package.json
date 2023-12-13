@@ -93,6 +93,12 @@
                         "${fileDirname}"
                     ]
                 },
+                "flake8.enabled": {
+                    "default": true,
+                    "markdownDescription": "%settings.enabled.description%",
+                    "scope": "resource",
+                    "type": "boolean"
+                },
                 "flake8.ignorePatterns": {
                     "default": [],
                     "markdownDescription": "%settings.ignorePatterns.description%",

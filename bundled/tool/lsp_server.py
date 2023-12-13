@@ -272,11 +272,16 @@ QUICK_FIXES = QuickFixSolutions()
 )
 def code_action(params: lsp.CodeActionParams) -> List[lsp.CodeAction]:
     """LSP handler for textDocument/codeAction request."""
+    document = LSP_SERVER.workspace.get_document(params.text_document.uri)
+
+    settings = copy.deepcopy(_get_settings_by_document(document))
+    code_actions = []
+    if not settings["enabled"]:
+        return code_actions
+
     diagnostics = list(
         d for d in params.context.diagnostics if d.source == TOOL_DISPLAY
     )
-
-    document = LSP_SERVER.workspace.get_document(params.text_document.uri)
 
     code_actions = []
     for diagnostic in diagnostics:
@@ -446,6 +451,7 @@ def _log_version_info() -> None:
 def _get_global_defaults():
     return {
         "path": GLOBAL_SETTINGS.get("path", []),
+        "enabled": GLOBAL_SETTINGS.get("enabled", True),
         "interpreter": GLOBAL_SETTINGS.get("interpreter", [sys.executable]),
         "args": GLOBAL_SETTINGS.get("args", []),
         "severity": GLOBAL_SETTINGS.get(
@@ -543,6 +549,11 @@ def _run_tool_on_document(
     """
     # deep copy here to prevent accidentally updating global settings.
     settings = copy.deepcopy(_get_settings_by_document(document))
+
+    if not settings["enabled"]:
+        log_warning(f"Skipping file [Linting Disabled]: {document.path}")
+        log_warning("See `flake8.enabled` in settings.json to enabling linting.")
+        return None
 
     if str(document.uri).startswith("vscode-notebook-cell"):
         log_warning(f"Skipping notebook cells [Not Supported]: {str(document.uri)}")
