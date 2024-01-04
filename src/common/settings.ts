@@ -15,6 +15,7 @@ const DEFAULT_SEVERITY: Record<string, string> = {
 };
 export interface ISettings {
     cwd: string;
+    enabled: boolean;
     workspace: string;
     args: string[];
     severity: Record<string, string>;
@@ -115,6 +116,7 @@ export async function getWorkspaceSettings(
 
     const workspaceSetting = {
         cwd: getCwd(config, workspace),
+        enabled: config.get<boolean>('enabled', true),
         workspace: workspace.uri.toString(),
         args: resolveVariables(config.get<string[]>('args', []), workspace),
         severity: config.get<Record<string, string>>('severity', DEFAULT_SEVERITY),
@@ -145,6 +147,7 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
 
     const setting = {
         cwd: getGlobalValue<string>(config, 'cwd', process.cwd()),
+        enabled: getGlobalValue<boolean>(config, 'enabled', true),
         workspace: process.cwd(),
         args: getGlobalValue<string[]>(config, 'args', []),
         severity: getGlobalValue<Record<string, string>>(config, 'severity', DEFAULT_SEVERITY),
@@ -161,6 +164,7 @@ export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespa
     const settings = [
         `${namespace}.args`,
         `${namespace}.cwd`,
+        `${namespace}.enabled`,
         `${namespace}.severity`,
         `${namespace}.path`,
         `${namespace}.interpreter`,

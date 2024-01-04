@@ -379,3 +379,73 @@ def test_ignore_patterns_no_match(patterns: List[str]):
     }
 
     assert_that(actual, is_(expected))
+
+
+@pytest.mark.parametrize("enabled", (True, False))
+def test_enabled_setting(enabled):
+    """Test to ensure enabled setting is honored."""
+    contents = TEST_FILE_PATH.read_text(encoding="utf-8")
+
+    actual = []
+    with session.LspSession() as ls_session:
+        default_init = defaults.vscode_initialize_defaults()
+        init_options = default_init["initializationOptions"]
+        init_options["settings"][0]["enabled"] = enabled
+        ls_session.initialize(default_init)
+
+        done = Event()
+
+        def _handler(params):
+            nonlocal actual
+            actual = params
+            done.set()
+
+        ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
+
+        ls_session.notify_did_open(
+            {
+                "textDocument": {
+                    "uri": TEST_FILE_URI,
+                    "languageId": "python",
+                    "version": 1,
+                    "text": contents,
+                }
+            }
+        )
+
+        # wait for some time to receive all notifications
+        done.wait(TIMEOUT)
+
+    if enabled:
+        expected = {
+            "uri": TEST_FILE_URI,
+            "diagnostics": [
+                {
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 0, "character": 0},
+                    },
+                    "message": "'sys' imported but unused",
+                    "severity": 1,
+                    "code": "F401",
+                    "source": LINTER["name"],
+                },
+                {
+                    "range": {
+                        "start": {"line": 2, "character": 6},
+                        "end": {"line": 2, "character": 6},
+                    },
+                    "message": "undefined name 'x'",
+                    "severity": 1,
+                    "code": "F821",
+                    "source": LINTER["name"],
+                },
+            ],
+        }
+    else:
+        expected = {
+            "uri": TEST_FILE_URI,
+            "diagnostics": [],
+        }
+
+    assert_that(actual, is_(expected))
