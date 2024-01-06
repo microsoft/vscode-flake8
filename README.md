@@ -21,9 +21,9 @@ The Flake8 extension provides features to improve your productivity while workin
 
 ### Disabling Flake8
 
-You can skip linting with Flake8 for specific files or directories by setting the `flake8.ignorePatterns` setting.
+You can skip linting with Flake8 for specific files or directories by setting the `flake8.ignorePatterns` setting. 
 
-If you wish to disable linting with Flake8 for your entire workspace or globally, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) in Visual Studio Code.
+If you wish to disable linting with Flake8 for your entire workspace or globally, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) in Visual Studio Code. Alternatively, you can also disable Flake8 for your entire workspace by setting `"flake8.enabled" : false` in your `settings.json` file. 
 
 ## Settings
 
@@ -81,6 +81,10 @@ There are several settings you can configure to customize the behavior of this e
             <td>flake8.ignorePatterns</td>
             <td><code>[]</code></td>
             <td>Configure [glob patterns](https://docs.python.org/3/library/fnmatch.html) as supported by the fnmatch Python library to exclude files or folders from being linted with Flake8.</td>
+        <tr>
+            <td>flake8.enabled</td>
+            <td><code>true</code></td>
+            <td>Specifies whether to enable or disable linting Python files using Flake8. </td>
         </tr>
     </tbody>
 </table>
