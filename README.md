@@ -84,7 +84,7 @@ There are several settings you can configure to customize the behavior of this e
         <tr>
             <td>flake8.enabled</td>
             <td><code>true</code></td>
-            <td>Specifies whether to enable or disable linting Python files using Flake8. This setting can be applied globally or at the workspace level. If disabled, the linting server itself will continue to be active and monitor read and write events, but it won't perform linting or expose code actions. </td>
+            <td>Specifies whether to enable or disable linting Python files using Flake8. This setting can be applied globally or at the workspace level. If disabled, the linting server itself will continue to be active and monitor read and write events, but it won't perform linting or expose Code Actions. </td>
         </tr>
     </tbody>
 </table>
