@@ -2,7 +2,7 @@
 
 A Visual Studio Code extension with support for the Flake8 linter. The extension ships with `flake8==6.1.0`.
 
-> **Note**: The minimum version of Flake8 this extension supports is 5.0.0.
+> **Note**: The minimum version of Flake8 this extension supports is 5.0.0. If you are having issues with Flake8, please report it to [this issue tracker](https://github.com/PyCQA/flake8/issues) as this extension is just a wrapper around Flake8.
 
 This extension supports all [actively supported versions](https://devguide.python.org/versions/#status-of-python-versions) of the Python language (i.e., Python >= 3.8).
 
@@ -10,7 +10,7 @@ For more information on Flake8, see https://flake8.pycqa.org/
 
 -   Minimum supported version of `flake8` is `5.0.0`.
 
-## Usage and Features 
+## Usage and Features
 
 The Flake8 extension provides features to improve your productivity while working on Python code in Visual Studio Code. Check out the [Settings section](#settings) below for more details on how to customize the extension.
 
@@ -21,13 +21,14 @@ The Flake8 extension provides features to improve your productivity while workin
 
 ### Disabling Flake8
 
-You can skip linting with Flake8 for specific files or directories by setting the `flake8.ignorePatterns` setting. 
+You can skip linting with Flake8 for specific files or directories by setting the `flake8.ignorePatterns` setting.
 
-If you wish to disable linting with Flake8 for your entire workspace or globally, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) in Visual Studio Code. Alternatively, you can also disable Flake8 for your entire workspace by setting `"flake8.enabled" : false` in your `settings.json` file. 
+If you wish to disable linting with Flake8 for your entire workspace or globally, you can [disable this extension](https://code.visualstudio.com/docs/editor/extension-marketplace#_disable-an-extension) in Visual Studio Code. Alternatively, you can also disable Flake8 for your entire workspace by setting `"flake8.enabled" : false` in your `settings.json` file.
 
 ## Settings
 
 There are several settings you can configure to customize the behavior of this extension.
+
 <table>
     <thead>
         <tr>
