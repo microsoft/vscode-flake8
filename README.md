@@ -74,11 +74,6 @@ There are several settings you can configure to customize the behavior of this e
             <td>Controls when notifications are shown by this extension. Accepted values are onError, onWarning, always and off.</td>
         </tr>
         <tr>
-            <td>flake8.lintOnChange</td>
-            <td><code>false</code></td>
-            <td>Enable linting Python files with Flake8 as you type.</td>
-        </tr>
-        <tr>
             <td>flake8.ignorePatterns</td>
             <td><code>[]</code></td>
             <td>Configure [glob patterns](https://docs.python.org/3/library/fnmatch.html) as supported by the fnmatch Python library to exclude files or folders from being linted with Flake8.</td>
