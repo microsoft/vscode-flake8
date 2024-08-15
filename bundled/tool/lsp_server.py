@@ -463,7 +463,7 @@ def _get_global_defaults():
                 "W": "Warning",
             },
         ),
-        "ignorePatterns": [],
+        "ignorePatterns": GLOBAL_SETTINGS.get("ignorePatterns", []),
         "importStrategy": GLOBAL_SETTINGS.get("importStrategy", "useBundled"),
         "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "off"),
     }
