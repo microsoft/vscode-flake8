@@ -1,10 +1,10 @@
 # Flake8 extension for Visual Studio Code
 
-A Visual Studio Code extension with support for the Flake8 linter. The extension ships with `flake8==7.1.0`.
+A Visual Studio Code extension with support for the Flake8 linter. The extension ships with `flake8==7.1.1`.
 
 > **Note**: The minimum version of Flake8 this extension supports is 5.0.0. If you are having issues with Flake8, please report it to [this issue tracker](https://github.com/PyCQA/flake8/issues) as this extension is just a wrapper around Flake8.
 
-This extension supports all [actively supported versions](https://devguide.python.org/versions/#status-of-python-versions) of the Python language. 
+This extension supports all [actively supported versions](https://devguide.python.org/versions/#status-of-python-versions) of the Python language.
 
 For more information on Flake8, see https://flake8.pycqa.org/
 
