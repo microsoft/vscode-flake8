@@ -5,6 +5,7 @@ import { ConfigurationChangeEvent, ConfigurationScope, WorkspaceConfiguration, W
 import { traceLog, traceWarn } from './logging';
 import { getInterpreterDetails } from './python';
 import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
+import { getInterpreterFromSetting } from './utilities';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 const DEFAULT_SEVERITY: Record<string, string> = {
@@ -78,11 +79,6 @@ function resolveVariables(
 function getCwd(config: WorkspaceConfiguration, workspace: WorkspaceFolder): string {
     const cwd = config.get<string>('cwd', workspace.uri.fsPath);
     return resolveVariables([cwd], workspace)[0];
-}
-
-export function getInterpreterFromSetting(namespace: string, scope?: ConfigurationScope) {
-    const config = getConfiguration(namespace, scope);
-    return config.get<string[]>('interpreter');
 }
 
 export async function getWorkspaceSettings(
