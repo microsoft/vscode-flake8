@@ -10,19 +10,19 @@ runs:
   using: 'composite'
   steps:
     - name: Install Node
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node_version }}
         cache: 'npm'
 
     # Minimum supported version is Python 3.9
     - name: Use Python 3.9
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
 
     - name: Pip cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-build-vsix-${{ hashFiles('**/requirements.txt') }}
