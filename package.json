@@ -60,8 +60,10 @@
         "pretest": "npm run compile-tests && npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
         "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.yml' '.github/**/*.yml'",
+        "fix-format": "prettier --write src/**/*.ts build/**/*.yml .github/**/*.yml",
         "test": "node ./out/test/runTest.js",
-        "vsce-package": "vsce package -o flake8.vsix"
+        "vsce-package": "vsce package -o flake8.vsix",
+        "vsce-package-pre": "vsce package -o flake8.vsix --pre-release"
     },
     "contributes": {
         "languages": [
