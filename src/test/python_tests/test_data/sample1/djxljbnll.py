@@ -1,0 +1,1 @@
+print ( 'Open parentheses should not have any space before or after them.')
