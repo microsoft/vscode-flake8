@@ -471,7 +471,8 @@ def _get_global_defaults():
 
 def _update_workspace_settings(settings):
     if not settings:
-        key = utils.normalize_path(GLOBAL_SETTINGS.get("cwd", os.getcwd()))
+        path_obj = pathlib.Path(GLOBAL_SETTINGS.get("cwd", os.getcwd()))
+        key = utils.normalize_path(path_obj.resolve())
         WORKSPACE_SETTINGS[key] = {
             "cwd": key,
             "workspaceFS": key,
@@ -481,7 +482,8 @@ def _update_workspace_settings(settings):
         return
 
     for setting in settings:
-        key = utils.normalize_path(uris.to_fs_path(setting["workspace"]))
+        path_obj = pathlib.Path(uris.to_fs_path(setting["workspace"]))
+        key = utils.normalize_path(path_obj.resolve())
         WORKSPACE_SETTINGS[key] = {
             **setting,
             "workspaceFS": key,
@@ -490,15 +492,15 @@ def _update_workspace_settings(settings):
 
 def _get_document_key(document: workspace.Document):
     if WORKSPACE_SETTINGS:
-        document_workspace = pathlib.Path(document.path)
+        current_path = pathlib.Path(document.path).resolve()
         workspaces = {s["workspaceFS"] for s in WORKSPACE_SETTINGS.values()}
 
         # Find workspace settings for the given file.
-        while document_workspace != document_workspace.parent:
-            norm_path = utils.normalize_path(document_workspace)
+        while current_path != current_path.parent:
+            norm_path = utils.normalize_path(current_path)
             if norm_path in workspaces:
                 return norm_path
-            document_workspace = document_workspace.parent
+            current_path = current_path.parent
 
     return None
 
