@@ -498,7 +498,7 @@ def _get_document_key(document: workspace.Document):
         workspaces = {s["workspaceFS"] for s in WORKSPACE_SETTINGS.values()}
 
         # Find workspace settings for the given file.
-        while current_path != current_path.parent:
+        while not utils.is_same_path(current_path, current_path.parent):
             norm_path = utils.normalize_path(current_path)
             if norm_path in workspaces:
                 return norm_path
@@ -514,7 +514,7 @@ def _get_settings_by_document(document: workspace.Document | None):
     key = _get_document_key(document)
     if key is None:
         # This is either a non-workspace file or there is no workspace.
-        key = utils.normalize_path(pathlib.Path(document.path).parent)
+        key = utils.normalize_path(pathlib.Path(document.path).parent.resolve())
         return {
             "cwd": key,
             "workspaceFS": key,
