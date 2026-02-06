@@ -13,11 +13,16 @@ from hamcrest import assert_that, is_
 
 from .lsp_test_client import constants, defaults, session, utils
 
-# Add bundled tool to path for direct testing
+# Path to bundled tool for direct testing
 BUNDLED_TOOL_PATH = (
     pathlib.Path(__file__).parent.parent.parent.parent / "bundled" / "tool"
 )
-sys.path.insert(0, str(BUNDLED_TOOL_PATH))
+
+
+@pytest.fixture(autouse=True)
+def _prepend_bundled_tool_to_sys_path(monkeypatch):
+    """Prepend bundled tool path to sys.path for each test in this module."""
+    monkeypatch.syspath_prepend(str(BUNDLED_TOOL_PATH))
 
 TEST_FILE_PATH = constants.TEST_DATA / "sample1" / "sample.py"
 TEST_FILE_URI = utils.as_uri(str(TEST_FILE_PATH))
@@ -165,13 +170,9 @@ def test_document_key_resolution_with_symlinks():
     This is a unit test for the fix to issue #340 where workspace-level
     flake8.args were ignored when document paths contained symlinks.
     """
-    # Import after adding to path
-    try:
-        import lsp_utils as utils
-        import lsp_server
-        from unittest.mock import Mock
-    except ImportError as e:
-        pytest.skip(f"Cannot import required modules: {e}")
+    import lsp_utils
+    import lsp_server
+    from unittest.mock import Mock
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create the real workspace directory
@@ -185,7 +186,7 @@ def test_document_key_resolution_with_symlinks():
         # Create a symlink to the workspace
         symlink_workspace = pathlib.Path(tmpdir) / "symlinked_workspace"
         try:
-            symlink_workspace.symlink_to(real_workspace)
+            symlink_workspace.symlink_to(real_workspace, target_is_directory=True)
         except OSError as e:
             pytest.skip(f"Symlinks not supported in this environment: {e}")
 
@@ -193,7 +194,7 @@ def test_document_key_resolution_with_symlinks():
         symlinked_file = symlink_workspace / "test.py"
 
         # Set up workspace settings with the real workspace path
-        real_workspace_key = utils.normalize_path(real_workspace.resolve())
+        real_workspace_key = lsp_utils.normalize_path(str(real_workspace))
         lsp_server.WORKSPACE_SETTINGS.clear()
         lsp_server.WORKSPACE_SETTINGS[real_workspace_key] = {
             "workspaceFS": real_workspace_key,
@@ -223,12 +224,9 @@ def test_document_key_resolution_with_symlinks():
 
 def test_workspace_settings_update_resolves_symlinks():
     """Test that _update_workspace_settings resolves symlinks when storing keys."""
-    try:
-        import lsp_utils as utils
-        import lsp_server
-        from pygls import uris
-    except ImportError as e:
-        pytest.skip(f"Cannot import required modules: {e}")
+    import lsp_utils
+    import lsp_server
+    from pygls import uris
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create workspace through a symlink
@@ -237,7 +235,7 @@ def test_workspace_settings_update_resolves_symlinks():
 
         symlink_workspace = pathlib.Path(tmpdir) / "symlinked_workspace"
         try:
-            symlink_workspace.symlink_to(real_workspace)
+            symlink_workspace.symlink_to(real_workspace, target_is_directory=True)
         except OSError as e:
             pytest.skip(f"Symlinks not supported in this environment: {e}")
 
@@ -255,7 +253,7 @@ def test_workspace_settings_update_resolves_symlinks():
         lsp_server._update_workspace_settings(settings)
 
         # The key should be the resolved path (real workspace)
-        expected_key = utils.normalize_path(real_workspace.resolve())
+        expected_key = lsp_utils.normalize_path(str(real_workspace))
 
         assert expected_key in lsp_server.WORKSPACE_SETTINGS, (
             f"Expected key '{expected_key}' not found in WORKSPACE_SETTINGS. "
