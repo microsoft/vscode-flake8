@@ -3,7 +3,6 @@ Test for path and interpreter settings.
 """
 
 import pathlib
-import sys
 import tempfile
 from threading import Event
 from typing import Dict
@@ -23,6 +22,7 @@ BUNDLED_TOOL_PATH = (
 def _prepend_bundled_tool_to_sys_path(monkeypatch):
     """Prepend bundled tool path to sys.path for each test in this module."""
     monkeypatch.syspath_prepend(str(BUNDLED_TOOL_PATH))
+
 
 TEST_FILE_PATH = constants.TEST_DATA / "sample1" / "sample.py"
 TEST_FILE_URI = utils.as_uri(str(TEST_FILE_PATH))
