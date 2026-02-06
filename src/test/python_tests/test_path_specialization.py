@@ -170,9 +170,10 @@ def test_document_key_resolution_with_symlinks():
     This is a unit test for the fix to issue #340 where workspace-level
     flake8.args were ignored when document paths contained symlinks.
     """
-    import lsp_utils
-    import lsp_server
     from unittest.mock import Mock
+
+    import lsp_server
+    import lsp_utils
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create the real workspace directory
@@ -224,8 +225,8 @@ def test_document_key_resolution_with_symlinks():
 
 def test_workspace_settings_update_resolves_symlinks():
     """Test that _update_workspace_settings resolves symlinks when storing keys."""
-    import lsp_utils
     import lsp_server
+    import lsp_utils
     from pygls import uris
 
     with tempfile.TemporaryDirectory() as tmpdir:
