@@ -498,8 +498,7 @@ def _update_workspace_settings(settings):
 
 def _get_document_key(document: workspace.Document):
     if WORKSPACE_SETTINGS:
-        # Do not resolve symlinks as we want the document relative to the workspace
-        document_workspace = utils.normalize_path(document.path, resolve_symlinks=False)
+        document_workspace = pathlib.Path(document.path)
         workspaces = {s["workspaceFS"] for s in WORKSPACE_SETTINGS.values()}
 
         # Find workspace settings in parent direcories recursively
