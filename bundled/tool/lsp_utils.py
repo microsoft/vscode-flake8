@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 """Utility functions and classes for use with running tools over LSP."""
+
 from __future__ import annotations
 
 import contextlib
@@ -68,9 +69,12 @@ def is_same_path(file_path1: str, file_path2: str) -> bool:
     return pathlib.Path(file_path1) == pathlib.Path(file_path2)
 
 
-def normalize_path(file_path: str) -> str:
+def normalize_path(file_path: str, resolve_symlinks: bool = True) -> str:
     """Returns normalized path."""
-    return str(pathlib.Path(file_path).resolve())
+    path = pathlib.Path(file_path)
+    if resolve_symlinks:
+        path = path.resolve()
+    return str(path)
 
 
 def is_current_interpreter(executable) -> bool:
@@ -80,7 +84,7 @@ def is_current_interpreter(executable) -> bool:
 
 def is_stdlib_file(file_path: str) -> bool:
     """Return True if the file belongs to the standard library."""
-    normalized_path = str(pathlib.Path(file_path).resolve())
+    normalized_path = normalize_path(file_path, resolve_symlinks=True)
     return any(normalized_path.startswith(path) for path in _stdlib_paths)
 
 

@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 """Implementation of tool support over LSP."""
+
 from __future__ import annotations
 
 import copy
@@ -470,8 +471,11 @@ def _get_global_defaults():
 
 
 def _update_workspace_settings(settings):
+    # If no workspace specific settings are provided, use global settings with cwd as current working directory of the server.
     if not settings:
-        key = utils.normalize_path(GLOBAL_SETTINGS.get("cwd", os.getcwd()))
+        key = utils.normalize_path(
+            GLOBAL_SETTINGS.get("cwd", os.getcwd()), resolve_symlinks=False
+        )
         WORKSPACE_SETTINGS[key] = {
             "cwd": key,
             "workspaceFS": key,
@@ -479,9 +483,13 @@ def _update_workspace_settings(settings):
             **_get_global_defaults(),
         }
         return
-
+    # Otherwise, update workspace settings with the provided settings and store
+    # them in WORKSPACE_SETTINGS dict with normalized workspaceFS as key.
+    # Do not resolve symlinks here to keep the paths relative to the workspace.
     for setting in settings:
-        key = utils.normalize_path(uris.to_fs_path(setting["workspace"]))
+        key = utils.normalize_path(
+            uris.to_fs_path(setting["workspace"]), resolve_symlinks=False
+        )
         WORKSPACE_SETTINGS[key] = {
             **setting,
             "workspaceFS": key,
@@ -493,9 +501,10 @@ def _get_document_key(document: workspace.Document):
         document_workspace = pathlib.Path(document.path)
         workspaces = {s["workspaceFS"] for s in WORKSPACE_SETTINGS.values()}
 
-        # Find workspace settings for the given file.
+        # Find workspace settings in parent direcories recursively
         while document_workspace != document_workspace.parent:
-            norm_path = utils.normalize_path(document_workspace)
+            # Do not resolve symlinks to keep paths (and parents) relative to the workspace.
+            norm_path = utils.normalize_path(document_workspace, resolve_symlinks=False)
             if norm_path in workspaces:
                 return norm_path
             document_workspace = document_workspace.parent
@@ -504,21 +513,27 @@ def _get_document_key(document: workspace.Document):
 
 
 def _get_settings_by_document(document: workspace.Document | None):
+    # If not document, return first workspace settings
     if document is None or document.path is None:
         return list(WORKSPACE_SETTINGS.values())[0]
 
     key = _get_document_key(document)
-    if key is None:
-        # This is either a non-workspace file or there is no workspace.
-        key = utils.normalize_path(pathlib.Path(document.path).parent)
-        return {
-            "cwd": key,
-            "workspaceFS": key,
-            "workspace": uris.from_fs_path(key),
-            **_get_global_defaults(),
-        }
 
-    return WORKSPACE_SETTINGS[str(key)]
+    # If key, return workspace settings for the given document
+    if key:
+        return WORKSPACE_SETTINGS[key]
+
+    # If no key, this is either a non-workspace file or there is no workspace.
+    # Return global settings with cwd as the parent directory of the document.
+    key = utils.normalize_path(
+        pathlib.Path(document.path).parent, resolve_symlinks=False
+    )
+    return {
+        "cwd": key,
+        "workspaceFS": key,
+        "workspace": uris.from_fs_path(key),
+        **_get_global_defaults(),
+    }
 
 
 # *****************************************************
