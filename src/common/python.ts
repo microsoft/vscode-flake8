@@ -113,7 +113,7 @@ export function checkVersion(resolved: ResolvedEnvironment | undefined): boolean
         return true;
     }
     traceError(`Python version ${version?.major}.${version?.minor} is not supported.`);
-    traceError(`Selected python path: ${resolved?.executable.uri?.fsPath}`);
+    traceError(`Selected Python path: ${resolved?.executable.uri?.fsPath}`);
     traceError(`Supported versions are ${PYTHON_VERSION} and above.`);
     return false;
 }
