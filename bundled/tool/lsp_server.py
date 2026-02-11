@@ -244,9 +244,7 @@ class QuickFixSolutions:
         """Decorator used for registering quick fixes."""
 
         def decorator(
-            func: Callable[
-                [TextDocument, List[lsp.Diagnostic]], List[lsp.CodeAction]
-            ],
+            func: Callable[[TextDocument, List[lsp.Diagnostic]], List[lsp.CodeAction]],
         ):
             if isinstance(codes, str):
                 if codes in self._solutions:
@@ -262,9 +260,7 @@ class QuickFixSolutions:
 
     def solutions(
         self, code: str
-    ) -> Optional[
-        Callable[[TextDocument, List[lsp.Diagnostic]], List[lsp.CodeAction]]
-    ]:
+    ) -> Optional[Callable[[TextDocument, List[lsp.Diagnostic]], List[lsp.CodeAction]]]:
         """Given a flake8 error code returns a function, if available, that provides
         quick fix code actions."""
 
@@ -767,23 +763,35 @@ def log_to_output(
 
 def log_error(message: str) -> None:
     """Logs messages with notification on error."""
-    LSP_SERVER.window_log_message(lsp.LogMessageParams(message=message, type=lsp.MessageType.Error))
+    LSP_SERVER.window_log_message(
+        lsp.LogMessageParams(message=message, type=lsp.MessageType.Error)
+    )
     if os.getenv("LS_SHOW_NOTIFICATION", "off") in ["onError", "onWarning", "always"]:
-        LSP_SERVER.window_show_message(lsp.ShowMessageParams(message=message, type=lsp.MessageType.Error))
+        LSP_SERVER.window_show_message(
+            lsp.ShowMessageParams(message=message, type=lsp.MessageType.Error)
+        )
 
 
 def log_warning(message: str) -> None:
     """Logs messages with notification on warning."""
-    LSP_SERVER.window_log_message(lsp.LogMessageParams(message=message, type=lsp.MessageType.Warning))
+    LSP_SERVER.window_log_message(
+        lsp.LogMessageParams(message=message, type=lsp.MessageType.Warning)
+    )
     if os.getenv("LS_SHOW_NOTIFICATION", "off") in ["onWarning", "always"]:
-        LSP_SERVER.window_show_message(lsp.ShowMessageParams(message=message, type=lsp.MessageType.Warning))
+        LSP_SERVER.window_show_message(
+            lsp.ShowMessageParams(message=message, type=lsp.MessageType.Warning)
+        )
 
 
 def log_always(message: str) -> None:
     """Logs messages with notification."""
-    LSP_SERVER.window_log_message(lsp.LogMessageParams(message=message, type=lsp.MessageType.Info))
+    LSP_SERVER.window_log_message(
+        lsp.LogMessageParams(message=message, type=lsp.MessageType.Info)
+    )
     if os.getenv("LS_SHOW_NOTIFICATION", "off") in ["always"]:
-        LSP_SERVER.window_show_message(lsp.ShowMessageParams(message=message, type=lsp.MessageType.Info))
+        LSP_SERVER.window_show_message(
+            lsp.ShowMessageParams(message=message, type=lsp.MessageType.Info)
+        )
 
 
 # *****************************************************
