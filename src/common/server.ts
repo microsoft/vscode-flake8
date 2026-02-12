@@ -19,6 +19,10 @@ import { updateStatus } from './status';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 
+function getCwd(settings: ISettings): string {
+    return settings.cwd === '${fileDirname}' ? Uri.parse(settings.workspace).fsPath : settings.cwd;
+}
+
 async function createServer(
     settings: ISettings,
     serverId: string,
@@ -27,7 +31,7 @@ async function createServer(
     initializationOptions: IInitOptions,
 ): Promise<LanguageClient> {
     const command = settings.interpreter[0];
-    const cwd = settings.cwd === '${fileDirname}' ? Uri.parse(settings.workspace).fsPath : settings.cwd;
+    const cwd = getCwd(settings);
 
     // Set debugger path needed for debugging Python code.
     const newEnv = { ...process.env };
@@ -52,6 +56,7 @@ async function createServer(
             ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])
             : settings.interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
     traceInfo(`Server run command: ${[command, ...args].join(' ')}`);
+    traceInfo(`Server CWD: ${cwd}`);
 
     const serverOptions: ServerOptions = {
         command,
@@ -114,12 +119,13 @@ export async function restartServer(
             }
         }),
     );
+    const cwd = getCwd(workspaceSetting);
     try {
         await newLSClient.start();
         await newLSClient.setTrace(getLSClientTraceLevel(outputChannel.logLevel, env.logLevel));
     } catch (ex) {
         updateStatus(l10n.t('Server failed to start.'), LanguageStatusSeverity.Error);
-        traceError(`Server: Start failed: ${ex}`);
+        traceError(`Server: Start failed: ${ex}\n\tCWD used: ${cwd}`);
     }
 
     return newLSClient;
