@@ -208,8 +208,8 @@
         ]
     },
     "dependencies": {
-        "@vscode/python-extension": "^1.0.5",
-        "fs-extra": "^11.3.1",
+        "@vscode/python-extension": "^1.0.6",
+        "fs-extra": "^11.3.3",
         "vscode-languageclient": "^8.1.0"
     },
     "devDependencies": {
@@ -223,10 +223,10 @@
         "@vscode/vsce": "^3.7.1",
         "eslint": "^8.57.1",
         "glob": "^13.0.2",
-        "prettier": "^3.6.2",
+        "prettier": "^3.8.1",
         "ts-loader": "^9.5.4",
-        "typescript": "^5.9.2",
-        "webpack": "^5.101.3",
+        "typescript": "^5.9.3",
+        "webpack": "^5.105.2",
         "webpack-cli": "^6.0.1"
     }
 }
