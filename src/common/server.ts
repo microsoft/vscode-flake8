@@ -55,8 +55,7 @@ async function createServer(
         newEnv.USE_DEBUGPY === 'False' || !isDebugScript
             ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])
             : settings.interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
-    traceInfo(`Server run command: ${[command, ...args].join(' ')}`);
-    traceInfo(`Server CWD: ${cwd}`);
+    traceInfo(`Server run command: ${[command, ...args].join(' ')}\n\tCWD: ${cwd}`);
 
     const serverOptions: ServerOptions = {
         command,
