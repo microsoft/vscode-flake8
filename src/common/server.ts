@@ -55,7 +55,8 @@ async function createServer(
         newEnv.USE_DEBUGPY === 'False' || !isDebugScript
             ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])
             : settings.interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
-    traceInfo(`Server run command: ${[command, ...args].join(' ')}\n\tCWD: ${cwd}`);
+    traceInfo(`Server run command: ${[command, ...args].join(' ')}`);
+    traceInfo(`Server CWD: ${cwd}`);
 
     const serverOptions: ServerOptions = {
         command,
@@ -124,7 +125,8 @@ export async function restartServer(
         await newLSClient.setTrace(getLSClientTraceLevel(outputChannel.logLevel, env.logLevel));
     } catch (ex) {
         updateStatus(l10n.t('Server failed to start.'), LanguageStatusSeverity.Error);
-        traceError(`Server: Start failed: ${ex}\n\tCWD used: ${cwd}`);
+        traceError(`Server: Start failed: ${ex}`);
+        traceError(`Server CWD: ${cwd}`);
     }
 
     return newLSClient;
