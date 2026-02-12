@@ -18,9 +18,9 @@ updates:
           - 'patch'
     open-pull-requests-limit: 10
     ignore:
-    - dependency-name: '@types/vscode'
-    - dependency-name: '@types/node'
-    - dependency-name: 'vscode-languageclient'
+      - dependency-name: '@types/vscode'
+      - dependency-name: '@types/node'
+      - dependency-name: 'vscode-languageclient'
 
   # Python dependencies are updated weekly, minor updates are grouped (1 PR "pip-minor-patch").
   # The no-changelog label is NOT added here
