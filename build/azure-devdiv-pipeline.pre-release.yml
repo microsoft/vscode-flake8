@@ -21,6 +21,10 @@ variables:
     value: VSCode-flake8
   - name: VsixName
     value: flake8.vsix
+  - name: NodeVersion
+    value: '22.17.0'
+  - name: PythonVersion
+    value: '3.10'
   - name: AZURE_ARTIFACTS_FEED
     value: 'https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/Pylance_PublicPackages/npm/registry/'
 parameters:
@@ -75,13 +79,13 @@ extends:
 
               - task: NodeTool@0
                 inputs:
-                  versionSpec: '22.17.0'
+                  versionSpec: $(NodeVersion)
                   checkLatest: true
                 displayName: Select Node 22 LTS
 
               - task: UsePythonVersion@0
                 inputs:
-                  versionSpec: '3.9' # note Install Python dependencies step below relies on Python 3.9
+                  versionSpec: $(PythonVersion) # note Install Python dependencies step below relies on Python 3.10
                   addToPath: true
                   architecture: 'x64'
                 displayName: Select Python version
