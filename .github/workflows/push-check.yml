@@ -28,6 +28,7 @@ jobs:
         uses: ./.github/actions/build-vsix
         with:
           node_version: ${{ env.NODE_VERSION}}
+          python_version: ${{ env.PYTHON_VERSION }}
 
   lint:
     name: Lint
@@ -40,6 +41,7 @@ jobs:
         uses: ./.github/actions/lint
         with:
           node_version: ${{ env.NODE_VERSION }}
+          python_version: ${{ env.PYTHON_VERSION }}
 
   tests:
     name: Tests
