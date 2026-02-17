@@ -3,7 +3,7 @@
 
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import { Disposable, FileSystemWatcher, workspace } from 'vscode';
+import { Disposable, FileSystemWatcher, Uri, workspace } from 'vscode';
 import { createConfigFileWatchers } from '../../../../common/configWatcher';
 import { FLAKE8_CONFIG_FILES } from '../../../../common/constants';
 
@@ -15,41 +15,43 @@ interface MockFileSystemWatcher {
 }
 
 function createMockFileSystemWatcher(): MockFileSystemWatcher {
-    let onDidChangeHandler: (() => Promise<void>) | undefined;
-    let onDidCreateHandler: (() => Promise<void>) | undefined;
-    let onDidDeleteHandler: (() => Promise<void>) | undefined;
+    let onDidChangeHandler: ((e: Uri) => Promise<void>) | undefined;
+    let onDidCreateHandler: ((e: Uri) => Promise<void>) | undefined;
+    let onDidDeleteHandler: ((e: Uri) => Promise<void>) | undefined;
 
     const watcher = {
-        onDidChange: (handler: () => Promise<void>): Disposable => {
+        onDidChange: (handler: (e: Uri) => Promise<void>): Disposable => {
             onDidChangeHandler = handler;
             return { dispose: () => { } };
         },
-        onDidCreate: (handler: () => Promise<void>): Disposable => {
+        onDidCreate: (handler: (e: Uri) => Promise<void>): Disposable => {
             onDidCreateHandler = handler;
             return { dispose: () => { } };
         },
-        onDidDelete: (handler: () => Promise<void>): Disposable => {
+        onDidDelete: (handler: (e: Uri) => Promise<void>): Disposable => {
             onDidDeleteHandler = handler;
             return { dispose: () => { } };
         },
         dispose: () => { },
     } as unknown as FileSystemWatcher;
 
+    const fakeUri = Uri.file('/fake/config/file');
+
     return {
         watcher,
         fireDidCreate: async () => {
             if (onDidCreateHandler) {
-                await onDidCreateHandler();
+                await onDidCreateHandler(fakeUri);
             }
         },
         fireDidChange: async () => {
             if (onDidChangeHandler) {
-                await onDidChangeHandler();
+                await onDidChangeHandler(fakeUri);
             }
         },
         fireDidDelete: async () => {
             if (onDidDeleteHandler) {
-                await onDidDeleteHandler();
+                await onDidDeleteHandler(fakeUri);
             }
         },
     };
