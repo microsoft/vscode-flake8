@@ -13,3 +13,4 @@ export const PYTHON_MAJOR = 3;
 export const PYTHON_MINOR = 10;
 export const PYTHON_VERSION = `${PYTHON_MAJOR}.${PYTHON_MINOR}`;
 export const LS_SERVER_RESTART_DELAY = 1000;
+export const FLAKE8_CONFIG_FILES = ['.flake8', 'setup.cfg', 'tox.ini'];
