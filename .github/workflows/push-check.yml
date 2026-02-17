@@ -127,7 +127,7 @@ jobs:
       - name: Compile TS tests
         run: npm run pretest
         shell: bash
-      
+
       - name: Run TS tests
         uses: GabrielBB/xvfb-action@v1.7
         with:

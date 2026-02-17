@@ -22,17 +22,17 @@ function createMockFileSystemWatcher(): MockFileSystemWatcher {
     const watcher = {
         onDidChange: (handler: (e: Uri) => Promise<void>): Disposable => {
             onDidChangeHandler = handler;
-            return { dispose: () => { } };
+            return { dispose: () => {} };
         },
         onDidCreate: (handler: (e: Uri) => Promise<void>): Disposable => {
             onDidCreateHandler = handler;
-            return { dispose: () => { } };
+            return { dispose: () => {} };
         },
         onDidDelete: (handler: (e: Uri) => Promise<void>): Disposable => {
             onDidDeleteHandler = handler;
-            return { dispose: () => { } };
+            return { dispose: () => {} };
         },
-        dispose: () => { },
+        dispose: () => {},
     } as unknown as FileSystemWatcher;
 
     const fakeUri = Uri.file('/fake/config/file');
