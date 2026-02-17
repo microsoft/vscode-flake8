@@ -8,18 +8,17 @@ on:
     - cron: "0 12 15 10 *"
   workflow_dispatch:
 permissions:
-  contents: write
-  pull-requests: write
+  pull-requests: read
 tools:
-  web-fetch: true
+  web-fetch:
   github:
     toolsets: [default]
 network:
   allowed:
-    - devguide.python.org
+    - python
 safe-outputs:
   create-pull-request:
-    max: 1
+    draft: true
   noop:
     max: 1
 ---
