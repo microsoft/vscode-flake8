@@ -3,6 +3,7 @@
 
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { createConfigFileWatchers } from './common/configWatcher';
 import { registerLogger, traceError, traceLog, traceVerbose } from './common/logging';
 import { initializePython, onDidChangePythonInterpreter } from './common/python';
 import { restartServer } from './common/server';
@@ -61,8 +62,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 updateStatus(vscode.l10n.t('Please select a Python interpreter.'), vscode.LanguageStatusSeverity.Error);
                 traceError(
                     'Python interpreter missing:\r\n' +
-                        '[Option 1] Select Python interpreter using the ms-python.python (select interpreter command).\r\n' +
-                        `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n`,
+                    '[Option 1] Select Python interpreter using the ms-python.python (select interpreter command).\r\n' +
+                    `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n`,
                     `Please use Python ${PYTHON_VERSION} or greater.`,
                 );
             } else {
@@ -90,6 +91,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
         registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
     );
+
+    context.subscriptions.push(...createConfigFileWatchers(runServer));
 
     // This is needed to inform users that they might have some legacy settings that
     // are no longer supported. Instructions are printed in the output channel on how
