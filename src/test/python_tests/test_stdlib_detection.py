@@ -70,13 +70,18 @@ def test_random_file_not_stdlib():
 
 
 def test_false_positive_site_packages_in_name():
-    """Test that files with 'site-packages' in the project name are not falsely detected."""
-    # A hypothetical project with 'site-packages' in its name (use os.path.join for cross-platform)
-    test_file = os.path.join(os.sep, "home", "user", "my-site-packages-project", "src", "main.py")
+    """Test that files with 'site-packages' in directory name are correctly handled."""
+    # Test 1: A directory with 'site-packages' as part of the name (not a path segment)
+    # This should NOT be detected as stdlib because it's not in an actual stdlib path
+    test_file_1 = os.path.join(os.sep, "home", "user", "my-site-packages-project", "src", "main.py")
+    result_1 = is_stdlib_file(test_file_1)
+    assert not result_1, f"User project file {test_file_1} should NOT be detected as stdlib"
     
-    # This should NOT be detected as stdlib (even though it has 'site-packages' in the name)
-    result = is_stdlib_file(test_file)
-    assert not result, f"User project file {test_file} should NOT be detected as stdlib"
+    # Test 2: A directory literally named 'site-packages-backup' with the substring but not segment
+    # The path segment logic should NOT match this because it's 'site-packages-backup', not 'site-packages'
+    test_file_2 = os.path.join(os.sep, "backup", "site-packages-backup", "mymodule.py")
+    result_2 = is_stdlib_file(test_file_2)
+    assert not result_2, f"File in site-packages-backup {test_file_2} should NOT be detected as stdlib"
 
 
 if __name__ == "__main__":
