@@ -86,11 +86,11 @@ def is_stdlib_file(file_path: str) -> bool:
     
     # Exclude site-packages and dist-packages directories which contain third-party packages
     # Use os.sep to ensure we match path segments, not arbitrary substrings
-    if (f'{os.sep}site-packages{os.sep}' in normalized_path or 
-        f'{os.sep}dist-packages{os.sep}' in normalized_path or
-        normalized_path.endswith(f'{os.sep}site-packages') or
-        normalized_path.endswith(f'{os.sep}dist-packages')):
-        return False
+    for pkg_dir in ('site-packages', 'dist-packages'):
+        if (f'{os.sep}{pkg_dir}{os.sep}' in normalized_path or 
+            normalized_path.endswith(f'{os.sep}{pkg_dir}') or
+            normalized_path.startswith(f'{pkg_dir}{os.sep}')):
+            return False
     
     return any(normalized_path.startswith(path) for path in _stdlib_paths)
 

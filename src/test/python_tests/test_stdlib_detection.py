@@ -71,8 +71,8 @@ def test_random_file_not_stdlib():
 
 def test_false_positive_site_packages_in_name():
     """Test that files with 'site-packages' in the project name are not falsely detected."""
-    # A hypothetical project with 'site-packages' in its name
-    test_file = "/home/user/my-site-packages-project/src/main.py"
+    # A hypothetical project with 'site-packages' in its name (use os.path.join for cross-platform)
+    test_file = os.path.join(os.sep, "home", "user", "my-site-packages-project", "src", "main.py")
     
     # This should NOT be detected as stdlib (even though it has 'site-packages' in the name)
     result = is_stdlib_file(test_file)
