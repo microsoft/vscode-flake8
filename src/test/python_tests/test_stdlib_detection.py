@@ -92,6 +92,8 @@ def test_false_positive_site_packages_in_name():
     # Test 3: A directory literally named 'site-packages-backup' 
     # Should NOT match because 'site-packages-backup' is not the same segment as 'site-packages'
     test_file_3 = os.path.join(stdlib_path, "site-packages-backup", "mymodule.py")
+    # Verify the test path would start with stdlib path if not excluded
+    assert test_file_3.startswith(stdlib_path), f"Test assumption failed: {test_file_3} should start with {stdlib_path}"
     # This one is tricky - it starts with stdlib path but has 'site-packages-backup' not 'site-packages'
     # With our current logic, this would NOT be excluded (which is correct)
     result_3 = is_stdlib_file(test_file_3)
