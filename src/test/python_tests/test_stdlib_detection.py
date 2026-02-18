@@ -69,9 +69,20 @@ def test_random_file_not_stdlib():
         os.unlink(tmp_path)
 
 
+def test_false_positive_site_packages_in_name():
+    """Test that files with 'site-packages' in the project name are not falsely detected."""
+    # A hypothetical project with 'site-packages' in its name
+    test_file = "/home/user/my-site-packages-project/src/main.py"
+    
+    # This should NOT be detected as stdlib (even though it has 'site-packages' in the name)
+    result = is_stdlib_file(test_file)
+    assert not result, f"User project file {test_file} should NOT be detected as stdlib"
+
+
 if __name__ == "__main__":
     test_stdlib_file_detection()
     test_site_packages_not_stdlib()
     test_user_site_packages_not_stdlib()
     test_random_file_not_stdlib()
+    test_false_positive_site_packages_in_name()
     print("All tests passed!")
