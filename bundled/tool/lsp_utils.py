@@ -88,7 +88,8 @@ def is_stdlib_file(file_path: str) -> bool:
     # Use os.sep to ensure we match path segments, not arbitrary substrings
     for pkg_dir in ('site-packages', 'dist-packages'):
         if (f'{os.sep}{pkg_dir}{os.sep}' in normalized_path or 
-            normalized_path.endswith(f'{os.sep}{pkg_dir}')):
+            normalized_path.endswith(f'{os.sep}{pkg_dir}') or
+            normalized_path.startswith(f'{os.sep}{pkg_dir}{os.sep}')):
             return False
     
     return any(normalized_path.startswith(path) for path in _stdlib_paths)

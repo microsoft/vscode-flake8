@@ -71,8 +71,6 @@ def test_random_file_not_stdlib():
 
 def test_false_positive_site_packages_in_name():
     """Test that path segment matching works correctly and avoids false positives."""
-    import sysconfig
-    
     # Get the actual stdlib path to ensure our test path would match if not for the exclusion
     stdlib_path = sysconfig.get_path('stdlib')
     if not stdlib_path:
