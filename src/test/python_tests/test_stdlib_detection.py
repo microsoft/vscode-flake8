@@ -70,18 +70,35 @@ def test_random_file_not_stdlib():
 
 
 def test_false_positive_site_packages_in_name():
-    """Test that files with 'site-packages' in directory name are correctly handled."""
-    # Test 1: A directory with 'site-packages' as part of the name (not a path segment)
-    # This should NOT be detected as stdlib because it's not in an actual stdlib path
-    test_file_1 = os.path.join(os.sep, "home", "user", "my-site-packages-project", "src", "main.py")
-    result_1 = is_stdlib_file(test_file_1)
-    assert not result_1, f"User project file {test_file_1} should NOT be detected as stdlib"
+    """Test that path segment matching works correctly and avoids false positives."""
+    import sysconfig
     
-    # Test 2: A directory literally named 'site-packages-backup' with the substring but not segment
-    # The path segment logic should NOT match this because it's 'site-packages-backup', not 'site-packages'
-    test_file_2 = os.path.join(os.sep, "backup", "site-packages-backup", "mymodule.py")
+    # Get the actual stdlib path to ensure our test path would match if not for the exclusion
+    stdlib_path = sysconfig.get_path('stdlib')
+    if not stdlib_path:
+        # Fallback for systems where this might not be available
+        stdlib_path = os.path.join(os.sep, "usr", "lib", "python3.12")
+    
+    # Test 1: A file that would be in stdlib EXCEPT it's in a site-packages subdirectory
+    # This should be EXCLUDED even though it starts with the stdlib path
+    test_file_in_stdlib_site_packages = os.path.join(stdlib_path, "site-packages", "mymodule.py")
+    result_1 = is_stdlib_file(test_file_in_stdlib_site_packages)
+    assert not result_1, f"File in {test_file_in_stdlib_site_packages} should be EXCLUDED (site-packages)"
+    
+    # Test 2: A directory with 'site-packages' as part of the name (not a path segment)
+    # This would NOT match stdlib path anyway, but tests that substring matching doesn't cause issues
+    test_file_2 = os.path.join(os.sep, "home", "user", "my-site-packages-project", "src", "main.py")
     result_2 = is_stdlib_file(test_file_2)
-    assert not result_2, f"File in site-packages-backup {test_file_2} should NOT be detected as stdlib"
+    assert not result_2, f"User project file {test_file_2} should NOT be detected as stdlib"
+    
+    # Test 3: A directory literally named 'site-packages-backup' 
+    # Should NOT match because 'site-packages-backup' is not the same segment as 'site-packages'
+    test_file_3 = os.path.join(stdlib_path, "site-packages-backup", "mymodule.py")
+    # This one is tricky - it starts with stdlib path but has 'site-packages-backup' not 'site-packages'
+    # With our current logic, this would NOT be excluded (which is correct)
+    result_3 = is_stdlib_file(test_file_3)
+    # This should be detected as stdlib because 'site-packages-backup' is not 'site-packages'
+    assert result_3, f"File in {test_file_3} should be detected as stdlib (not in site-packages)"
 
 
 if __name__ == "__main__":
