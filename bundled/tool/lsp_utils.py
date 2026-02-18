@@ -85,8 +85,7 @@ def is_stdlib_file(file_path: str) -> bool:
     normalized_path = normalize_path(file_path, resolve_symlinks=True)
     
     # Exclude site-packages and dist-packages directories which contain third-party packages
-    path_parts = pathlib.Path(normalized_path).parts
-    if 'site-packages' in path_parts or 'dist-packages' in path_parts:
+    if 'site-packages' in normalized_path or 'dist-packages' in normalized_path:
         return False
     
     return any(normalized_path.startswith(path) for path in _stdlib_paths)
