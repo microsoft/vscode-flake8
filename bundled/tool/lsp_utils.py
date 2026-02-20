@@ -31,11 +31,11 @@ def as_list(content: Union[Any, List[Any], Tuple[Any]]) -> List[Any]:
 
 
 def _get_sys_config_paths() -> List[str]:
-    """Returns paths from sysconfig.get_paths()."""
+    """Returns actual Python standard library paths from sysconfig.get_paths()."""
     return [
         path
         for group, path in sysconfig.get_paths().items()
-        if group not in ["data", "platdata", "scripts"]
+        if group in ["stdlib", "platstdlib"]
     ]
 
 
@@ -56,9 +56,7 @@ def _get_extensions_dir() -> List[str]:
 _stdlib_paths = set(
     str(pathlib.Path(p).resolve())
     for p in (
-        as_list(site.getsitepackages())
-        + as_list(site.getusersitepackages())
-        + _get_sys_config_paths()
+        _get_sys_config_paths()
         + _get_extensions_dir()
     )
 )
@@ -85,6 +83,14 @@ def is_current_interpreter(executable) -> bool:
 def is_stdlib_file(file_path: str) -> bool:
     """Return True if the file belongs to the standard library."""
     normalized_path = normalize_path(file_path, resolve_symlinks=True)
+    
+    # Exclude site-packages and dist-packages directories which contain third-party packages
+    # Use os.sep to ensure we match path segments, not arbitrary substrings
+    for pkg_dir in ('site-packages', 'dist-packages'):
+        if (f'{os.sep}{pkg_dir}{os.sep}' in normalized_path or 
+            normalized_path.endswith(f'{os.sep}{pkg_dir}')):
+            return False
+    
     return any(normalized_path.startswith(path) for path in _stdlib_paths)
 
 
