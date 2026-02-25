@@ -23,7 +23,7 @@
 #
 # When a new issue is opened — or when a maintainer comments `/triage-issue` on an existing issue — analyze its root cause, check whether the same issue could affect other extensions built from the microsoft/vscode-python-tools-extension-template, and look for related open issues on the upstream flake8 repository (PyCQA/flake8). If applicable, suggest an upstream fix and surface relevant flake8 issues to the reporter.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"effccd91ed652d14e7df117a9ade7a216ab2a63094d93b023a3adf9f7684deac","compiler_version":"v0.47.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"41860268a4d18b65b0b4f2055468d370c7b514ef6ee0f0b2a250a3299a0f8f00","compiler_version":"v0.47.5"}
 
 name: 'Issue Triage'
 'on':
@@ -290,6 +290,10 @@ jobs:
           destination: /opt/gh-aw/actions
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
       - name: Checkout template repo
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
