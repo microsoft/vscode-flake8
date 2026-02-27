@@ -2,11 +2,25 @@
 // Licensed under the MIT License.
 
 /* eslint-disable @typescript-eslint/naming-convention */
-import { commands, Disposable, Event, EventEmitter, Uri } from 'vscode';
+import { commands, Disposable, extensions, Event, EventEmitter, Uri } from 'vscode';
 import { traceError, traceLog } from './logging';
 import { PythonExtension, ResolvedEnvironment } from '@vscode/python-extension';
+import { PythonEnvironmentsAPI } from '../typings/pythonEnvironments';
 import { PYTHON_MAJOR, PYTHON_MINOR, PYTHON_VERSION } from './constants';
 import { getProjectRoot } from './utilities';
+
+const PYTHON_ENVIRONMENTS_EXTENSION_ID = 'ms-python.vscode-python-envs';
+
+async function getEnvironmentsExtensionAPI(): Promise<PythonEnvironmentsAPI | undefined> {
+    const extension = extensions.getExtension(PYTHON_ENVIRONMENTS_EXTENSION_ID);
+    if (!extension) {
+        return undefined;
+    }
+    if (!extension.isActive) {
+        await extension.activate();
+    }
+    return extension.exports as PythonEnvironmentsAPI;
+}
 
 export interface IInterpreterDetails {
     path?: string[];
@@ -64,15 +78,27 @@ async function refreshServerPython(): Promise<void> {
 
 export async function initializePython(disposables: Disposable[]): Promise<void> {
     try {
-        const api = await getPythonExtensionAPI();
+        // Prefer the Python Environments extension if it's available, as it provides a more comprehensive view of the available environments.
+        const envsApi = await getEnvironmentsExtensionAPI();
+        if (envsApi) {
+            disposables.push(
+                envsApi.onDidChangeEnvironment(async () => {
+                    await refreshServerPython();
+                }),
+            );
+            traceLog('Waiting for interpreter from Python Environments extension.');
+            await refreshServerPython();
+            return;
+        }
 
+        // Fall back to legacy ms-python.python extension API
+        const api = await getPythonExtensionAPI();
         if (api) {
             disposables.push(
                 api.environments.onDidChangeActiveEnvironmentPath(async () => {
                     await refreshServerPython();
                 }),
             );
-
             traceLog('Waiting for interpreter from Python extension.');
             await refreshServerPython();
         }
@@ -87,6 +113,18 @@ export async function resolveInterpreter(interpreter: string[]): Promise<Resolve
 }
 
 export async function getInterpreterDetails(resource?: Uri): Promise<IInterpreterDetails> {
+    // Prefer the Python Environments extension if it's available, as it provides a more comprehensive view of the available environments.
+    const envsApi = await getEnvironmentsExtensionAPI();
+    if (envsApi) {
+        const environment = await envsApi.getEnvironment(resource);
+        if (environment) {
+            const executablePath = environment.execInfo?.run?.executable ?? environment.environmentPath.fsPath;
+            traceLog(`Using Python interpreter from Python Environments extension: ${executablePath}`);
+            return { path: [executablePath], resource };
+        }
+        return { path: undefined, resource };
+    }
+    // Fall back to legacy ms-python.python extension API
     const api = await getPythonExtensionAPI();
     const environment = await api?.environments.resolveEnvironment(
         api?.environments.getActiveEnvironmentPath(resource),
