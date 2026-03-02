@@ -119,6 +119,11 @@ export interface DidChangeEnvironmentEventArgs {
 }
 
 /**
+ * Type representing the context for resolving a Python environment.
+ */
+export type ResolveEnvironmentContext = Uri;
+
+/**
  * The API exported by the ms-python.vscode-python-envs extension.
  * This is the subset of PythonEnvironmentApi used by this extension.
  */
@@ -127,6 +132,11 @@ export interface PythonEnvironmentsAPI {
      * Retrieves the current Python environment within the specified scope.
      */
     getEnvironment(scope: GetEnvironmentScope): Promise<PythonEnvironment | undefined>;
+
+    /**
+     * Resolves a Python environment from a Uri context.
+     */
+    resolveEnvironment(context: ResolveEnvironmentContext): Promise<PythonEnvironment | undefined>;
 
     /**
      * Event that is fired when the selected Python environment changes.
