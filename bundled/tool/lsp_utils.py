@@ -67,9 +67,12 @@ except Exception:
 _user_site_packages = str(pathlib.Path(_user_site).resolve()) if _user_site else None
 
 # Store system site packages paths separately for specific handling
-_system_site_packages = set(
-    str(pathlib.Path(p).resolve()) for p in as_list(site.getsitepackages())
-)
+try:
+    _system_site_packages = set(
+        str(pathlib.Path(p).resolve()) for p in as_list(site.getsitepackages())
+    )
+except Exception:
+    _system_site_packages = set()
 
 
 def is_same_path(file_path1: str, file_path2: str) -> bool:
