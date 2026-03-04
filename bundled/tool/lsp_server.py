@@ -630,6 +630,12 @@ def _run_tool_on_document(
         )
         return None
 
+    if utils.is_system_site_packages_file(document.path):
+        log_warning(
+            f"Skipping system site-packages file (site packages excluded): {document.path}"
+        )
+        return None
+
     if utils.is_stdlib_file(document.path):
         log_warning(
             f"Skipping standard library file (stdlib excluded): {document.path}"

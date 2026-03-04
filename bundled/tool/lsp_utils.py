@@ -62,6 +62,11 @@ _stdlib_paths = set(
 # Store user site packages path separately for specific handling
 _user_site_packages = str(pathlib.Path(site.getusersitepackages()).resolve())
 
+# Store system site packages paths separately for specific handling
+_system_site_packages = set(
+    str(pathlib.Path(p).resolve()) for p in as_list(site.getsitepackages())
+)
+
 
 def is_same_path(file_path1: str, file_path2: str) -> bool:
     """Returns true if two paths are the same."""
@@ -87,12 +92,18 @@ def is_user_site_packages_file(file_path: str) -> bool:
     return normalized_path.startswith(_user_site_packages)
 
 
+def is_system_site_packages_file(file_path: str) -> bool:
+    """Return True if the file belongs to system site-packages directories."""
+    normalized_path = normalize_path(file_path, resolve_symlinks=True)
+    return any(normalized_path.startswith(path) for path in _system_site_packages)
+
+
 def is_stdlib_file(file_path: str) -> bool:
     """Return True if the file belongs to the standard library."""
     normalized_path = normalize_path(file_path, resolve_symlinks=True)
 
     # Exclude site-packages and dist-packages directories which contain third-party packages
-    # Use os.sep to ensure we match path segments, not arbitrary substrings
+    # These are checked separately with their own messages
     for pkg_dir in ("site-packages", "dist-packages"):
         if f"{os.sep}{pkg_dir}{os.sep}" in normalized_path or normalized_path.endswith(
             f"{os.sep}{pkg_dir}"

@@ -15,7 +15,11 @@ from pathlib import Path
 bundled_path = Path(__file__).parent.parent.parent.parent / "bundled" / "tool"
 sys.path.insert(0, str(bundled_path))
 
-from lsp_utils import is_stdlib_file, is_user_site_packages_file
+from lsp_utils import (
+    is_stdlib_file,
+    is_system_site_packages_file,
+    is_user_site_packages_file,
+)
 
 
 def test_stdlib_file_detection():
@@ -87,6 +91,29 @@ def test_user_site_packages_detection():
         ), f"File in regular site-packages {test_file_regular} should NOT be detected as user site-packages"
 
 
+def test_system_site_packages_detection():
+    """Test that system site-packages files are correctly identified."""
+    site_packages = site.getsitepackages()
+
+    for site_pkg_dir in site_packages:
+        # Create a hypothetical file path in site-packages
+        test_file = os.path.join(site_pkg_dir, "pytest", "__init__.py")
+
+        # This should be detected as system site-packages
+        result = is_system_site_packages_file(test_file)
+        assert (
+            result
+        ), f"File in site-packages {test_file} should be detected as system site-packages"
+
+    # Test that user site-packages are NOT detected as system site-packages
+    user_site = site.getusersitepackages()
+    test_file_user = os.path.join(user_site, "some_package", "__init__.py")
+    result_user = is_system_site_packages_file(test_file_user)
+    assert (
+        not result_user
+    ), f"File in user site-packages {test_file_user} should NOT be detected as system site-packages"
+
+
 def test_random_file_not_stdlib():
     """Test that random user files are NOT identified as stdlib."""
     # Create a temporary file that's definitely not in stdlib
@@ -149,6 +176,7 @@ if __name__ == "__main__":
     test_site_packages_not_stdlib()
     test_user_site_packages_not_stdlib()
     test_user_site_packages_detection()
+    test_system_site_packages_detection()
     test_random_file_not_stdlib()
     test_false_positive_site_packages_in_name()
     print("All tests passed!")
