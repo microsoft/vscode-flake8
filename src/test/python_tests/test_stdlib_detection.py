@@ -181,6 +181,26 @@ def test_false_positive_site_packages_in_name():
     ), f"File in {test_file_3} should be detected as stdlib (not in site-packages)"
 
 
+def test_user_site_packages_none_handling():
+    """Test that None user site-packages is handled gracefully."""
+    # This test validates the fix for the case where site.getusersitepackages() returns None
+    # We can't easily simulate this, but we can verify the function handles None properly
+    import lsp_utils
+
+    # Temporarily override _user_site_packages to None to test the handling
+    original_value = lsp_utils._user_site_packages
+    try:
+        lsp_utils._user_site_packages = None
+
+        # Should return False when _user_site_packages is None
+        test_file = "/home/user/.local/lib/python3.12/site-packages/pytest/__init__.py"
+        result = lsp_utils.is_user_site_packages_file(test_file)
+        assert not result, "Should return False when _user_site_packages is None"
+    finally:
+        # Restore original value
+        lsp_utils._user_site_packages = original_value
+
+
 if __name__ == "__main__":
     test_stdlib_file_detection()
     test_site_packages_not_stdlib()
@@ -189,4 +209,5 @@ if __name__ == "__main__":
     test_system_site_packages_detection()
     test_random_file_not_stdlib()
     test_false_positive_site_packages_in_name()
+    test_user_site_packages_none_handling()
     print("All tests passed!")
