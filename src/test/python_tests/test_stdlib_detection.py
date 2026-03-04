@@ -58,37 +58,46 @@ def test_user_site_packages_not_stdlib():
     """Test that user site-packages files are NOT identified as stdlib."""
     user_site = site.getusersitepackages()
 
-    # Create a hypothetical file path in user site-packages
-    test_file = os.path.join(user_site, "some_package", "__init__.py")
+    if user_site:  # Handle None case when user site-packages is disabled
+        # Create a hypothetical file path in user site-packages
+        test_file = os.path.join(user_site, "some_package", "__init__.py")
 
-    # This should NOT be detected as stdlib
-    result = is_stdlib_file(test_file)
-    assert (
-        not result
-    ), f"File in user site-packages {test_file} should NOT be detected as stdlib"
+        # This should NOT be detected as stdlib
+        result = is_stdlib_file(test_file)
+        assert (
+            not result
+        ), f"File in user site-packages {test_file} should NOT be detected as stdlib"
 
 
 def test_user_site_packages_detection():
     """Test that user site-packages files are correctly identified."""
     user_site = site.getusersitepackages()
 
-    # Create a hypothetical file path in user site-packages
-    test_file = os.path.join(user_site, "some_package", "__init__.py")
+    if user_site:  # Handle None case when user site-packages is disabled
+        # Create a hypothetical file path in user site-packages
+        test_file = os.path.join(user_site, "some_package", "__init__.py")
 
-    # This should be detected as user site-packages
-    result = is_user_site_packages_file(test_file)
-    assert (
-        result
-    ), f"File in user site-packages {test_file} should be detected as user site-packages"
-
-    # Test that regular site-packages (not user) are NOT detected as user site-packages
-    site_packages = site.getsitepackages()
-    if site_packages:
-        test_file_regular = os.path.join(site_packages[0], "pytest", "__init__.py")
-        result_regular = is_user_site_packages_file(test_file_regular)
+        # This should be detected as user site-packages
+        result = is_user_site_packages_file(test_file)
         assert (
-            not result_regular
-        ), f"File in regular site-packages {test_file_regular} should NOT be detected as user site-packages"
+            result
+        ), f"File in user site-packages {test_file} should be detected as user site-packages"
+
+        # Test that regular site-packages (not user) are NOT detected as user site-packages
+        site_packages = site.getsitepackages()
+        if site_packages:
+            test_file_regular = os.path.join(site_packages[0], "pytest", "__init__.py")
+            result_regular = is_user_site_packages_file(test_file_regular)
+            assert (
+                not result_regular
+            ), f"File in regular site-packages {test_file_regular} should NOT be detected as user site-packages"
+    else:
+        # If user site-packages is disabled, the function should return False for any file
+        test_file = "/some/random/file.py"
+        result = is_user_site_packages_file(test_file)
+        assert (
+            not result
+        ), f"When user site-packages is None, should return False for {test_file}"
 
 
 def test_system_site_packages_detection():
@@ -107,11 +116,12 @@ def test_system_site_packages_detection():
 
     # Test that user site-packages are NOT detected as system site-packages
     user_site = site.getusersitepackages()
-    test_file_user = os.path.join(user_site, "some_package", "__init__.py")
-    result_user = is_system_site_packages_file(test_file_user)
-    assert (
-        not result_user
-    ), f"File in user site-packages {test_file_user} should NOT be detected as system site-packages"
+    if user_site:  # Handle None case when user site-packages is disabled
+        test_file_user = os.path.join(user_site, "some_package", "__init__.py")
+        result_user = is_system_site_packages_file(test_file_user)
+        assert (
+            not result_user
+        ), f"File in user site-packages {test_file_user} should NOT be detected as system site-packages"
 
 
 def test_random_file_not_stdlib():

@@ -60,7 +60,8 @@ _stdlib_paths = set(
 )
 
 # Store user site packages path separately for specific handling
-_user_site_packages = str(pathlib.Path(site.getusersitepackages()).resolve())
+_user_site = site.getusersitepackages()
+_user_site_packages = str(pathlib.Path(_user_site).resolve()) if _user_site else None
 
 # Store system site packages paths separately for specific handling
 _system_site_packages = set(
@@ -88,6 +89,8 @@ def is_current_interpreter(executable) -> bool:
 
 def is_user_site_packages_file(file_path: str) -> bool:
     """Return True if the file belongs to the user site-packages directory."""
+    if _user_site_packages is None:
+        return False
     normalized_path = normalize_path(file_path, resolve_symlinks=True)
     return normalized_path.startswith(_user_site_packages)
 
