@@ -15,7 +15,7 @@ from pathlib import Path
 bundled_path = Path(__file__).parent.parent.parent.parent / "bundled" / "tool"
 sys.path.insert(0, str(bundled_path))
 
-from lsp_utils import is_stdlib_file
+from lsp_utils import is_stdlib_file, is_user_site_packages_file
 
 
 def test_stdlib_file_detection():
@@ -54,6 +54,25 @@ def test_user_site_packages_not_stdlib():
     # This should NOT be detected as stdlib
     result = is_stdlib_file(test_file)
     assert not result, f"File in user site-packages {test_file} should NOT be detected as stdlib"
+
+
+def test_user_site_packages_detection():
+    """Test that user site-packages files are correctly identified."""
+    user_site = site.getusersitepackages()
+    
+    # Create a hypothetical file path in user site-packages
+    test_file = os.path.join(user_site, "some_package", "__init__.py")
+    
+    # This should be detected as user site-packages
+    result = is_user_site_packages_file(test_file)
+    assert result, f"File in user site-packages {test_file} should be detected as user site-packages"
+    
+    # Test that regular site-packages (not user) are NOT detected as user site-packages
+    site_packages = site.getsitepackages()
+    if site_packages:
+        test_file_regular = os.path.join(site_packages[0], "pytest", "__init__.py")
+        result_regular = is_user_site_packages_file(test_file_regular)
+        assert not result_regular, f"File in regular site-packages {test_file_regular} should NOT be detected as user site-packages"
 
 
 def test_random_file_not_stdlib():
@@ -105,6 +124,7 @@ if __name__ == "__main__":
     test_stdlib_file_detection()
     test_site_packages_not_stdlib()
     test_user_site_packages_not_stdlib()
+    test_user_site_packages_detection()
     test_random_file_not_stdlib()
     test_false_positive_site_packages_in_name()
     print("All tests passed!")

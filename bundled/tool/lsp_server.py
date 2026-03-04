@@ -580,6 +580,12 @@ def _run_tool_on_document(
         log_warning(f"Skipping notebook cells [Not Supported]: {str(document.uri)}")
         return None
 
+    if utils.is_user_site_packages_file(document.path):
+        log_warning(
+            f"Skipping user site-packages file (user packages excluded): {document.path}"
+        )
+        return None
+
     if utils.is_stdlib_file(document.path):
         log_warning(
             f"Skipping standard library file (stdlib excluded): {document.path}"

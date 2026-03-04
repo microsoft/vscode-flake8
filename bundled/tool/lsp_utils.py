@@ -61,6 +61,9 @@ _stdlib_paths = set(
     )
 )
 
+# Store user site packages path separately for specific handling
+_user_site_packages = str(pathlib.Path(site.getusersitepackages()).resolve())
+
 
 def is_same_path(file_path1: str, file_path2: str) -> bool:
     """Returns true if two paths are the same."""
@@ -78,6 +81,12 @@ def normalize_path(file_path: str, resolve_symlinks: bool = True) -> str:
 def is_current_interpreter(executable) -> bool:
     """Returns true if the executable path is same as the current interpreter."""
     return is_same_path(executable, sys.executable)
+
+
+def is_user_site_packages_file(file_path: str) -> bool:
+    """Return True if the file belongs to the user site-packages directory."""
+    normalized_path = normalize_path(file_path, resolve_symlinks=True)
+    return normalized_path.startswith(_user_site_packages)
 
 
 def is_stdlib_file(file_path: str) -> bool:
