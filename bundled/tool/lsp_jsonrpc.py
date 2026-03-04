@@ -3,6 +3,7 @@
 """Light-weight JSON-RPC over standard IO."""
 
 import atexit
+import contextlib
 import io
 import json
 import pathlib
@@ -98,14 +99,10 @@ class JsonRpc:
 
     def close(self):
         """Closes the underlying streams."""
-        try:
+        with contextlib.suppress(Exception):
             self._reader.close()
-        except:  # noqa: E722
-            pass
-        try:
+        with contextlib.suppress(Exception):
             self._writer.close()
-        except:  # noqa: E722
-            pass
 
     def send_data(self, data):
         """Send given data in JSON-RPC format."""
@@ -134,10 +131,8 @@ class ProcessManager:
     def stop_all_processes(self):
         """Send exit command to all processes and shutdown transport."""
         for i in self._rpc.values():
-            try:
+            with contextlib.suppress(Exception):
                 i.send_data({"id": str(uuid.uuid4()), "method": "exit"})
-            except:  # noqa: E722
-                pass
         self._thread_pool.shutdown(wait=False)
 
     def start_process(self, workspace: str, args: Sequence[str], cwd: str) -> None:

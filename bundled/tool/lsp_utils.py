@@ -169,7 +169,7 @@ def _run_module(
     str_output = CustomIO("<stdout>", encoding="utf-8")
     str_error = CustomIO("<stderr>", encoding="utf-8")
 
-    try:
+    with contextlib.suppress(SystemExit):
         with substitute_attr(sys, "argv", argv):
             with redirect_io("stdout", str_output):
                 with redirect_io("stderr", str_error):
@@ -181,8 +181,6 @@ def _run_module(
                             runpy.run_module(module, run_name="__main__")
                     else:
                         runpy.run_module(module, run_name="__main__")
-    except SystemExit:
-        pass
 
     return RunResult(str_output.get_value(), str_error.get_value())
 
@@ -248,7 +246,7 @@ def _run_api(
     str_output = CustomIO("<stdout>", encoding="utf-8")
     str_error = CustomIO("<stderr>", encoding="utf-8")
 
-    try:
+    with contextlib.suppress(SystemExit):
         with substitute_attr(sys, "argv", argv):
             with redirect_io("stdout", str_output):
                 with redirect_io("stderr", str_error):
@@ -260,7 +258,5 @@ def _run_api(
                             callback(argv, str_output, str_error, str_input)
                     else:
                         callback(argv, str_output, str_error)
-    except SystemExit:
-        pass
 
     return RunResult(str_output.get_value(), str_error.get_value())
