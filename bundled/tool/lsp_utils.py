@@ -60,7 +60,10 @@ _stdlib_paths = set(
 )
 
 # Store user site packages path separately for specific handling
-_user_site = site.getusersitepackages()
+try:
+    _user_site = site.getusersitepackages()
+except Exception:
+    _user_site = None
 _user_site_packages = str(pathlib.Path(_user_site).resolve()) if _user_site else None
 
 # Store system site packages paths separately for specific handling
@@ -107,11 +110,10 @@ def is_stdlib_file(file_path: str) -> bool:
 
     # Exclude site-packages and dist-packages directories which contain third-party packages
     # These are checked separately with their own messages
-    for pkg_dir in ("site-packages", "dist-packages"):
-        if f"{os.sep}{pkg_dir}{os.sep}" in normalized_path or normalized_path.endswith(
-            f"{os.sep}{pkg_dir}"
-        ):
-            return False
+    # Use pathlib.PurePath.parts for cross-platform compatibility (handles forward/backward slashes)
+    path_parts = pathlib.PurePath(normalized_path).parts
+    if "site-packages" in path_parts or "dist-packages" in path_parts:
+        return False
 
     return any(normalized_path.startswith(path) for path in _stdlib_paths)
 
