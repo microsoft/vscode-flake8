@@ -56,10 +56,7 @@ def _get_extensions_dir() -> List[str]:
 
 _stdlib_paths = set(
     str(pathlib.Path(p).resolve())
-    for p in (
-        _get_sys_config_paths()
-        + _get_extensions_dir()
-    )
+    for p in (_get_sys_config_paths() + _get_extensions_dir())
 )
 
 # Store user site packages path separately for specific handling
@@ -93,14 +90,15 @@ def is_user_site_packages_file(file_path: str) -> bool:
 def is_stdlib_file(file_path: str) -> bool:
     """Return True if the file belongs to the standard library."""
     normalized_path = normalize_path(file_path, resolve_symlinks=True)
-    
+
     # Exclude site-packages and dist-packages directories which contain third-party packages
     # Use os.sep to ensure we match path segments, not arbitrary substrings
-    for pkg_dir in ('site-packages', 'dist-packages'):
-        if (f'{os.sep}{pkg_dir}{os.sep}' in normalized_path or 
-            normalized_path.endswith(f'{os.sep}{pkg_dir}')):
+    for pkg_dir in ("site-packages", "dist-packages"):
+        if f"{os.sep}{pkg_dir}{os.sep}" in normalized_path or normalized_path.endswith(
+            f"{os.sep}{pkg_dir}"
+        ):
             return False
-    
+
     return any(normalized_path.startswith(path) for path in _stdlib_paths)
 
 
