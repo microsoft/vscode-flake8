@@ -46,7 +46,7 @@ There are several settings you can configure to customize the behavior of this e
         <tr>
             <td>flake8.cwd</td>
             <td><code>${workspaceFolder}</code></td>
-            <td>Sets the current working directory used to lint Python files with Flake8. By default, it uses the root directory of the workspace <code>${workspaceFolder}</code>. You can set it to <code>${fileDirname}</code> to use the parent folder of the file being linted as the working directory for Flake8. <br><br> <b>Note:</b> File-based variables such as <code>${fileDirname}</code> and <code>${relativeFileDirname}</code> are resolved per-document at lint time, not when the server starts. The server process always starts from the workspace folder; the configured directory is applied each time a file is linted.</td>
+            <td>Sets the current working directory used to lint Python files with Flake8. By default, it uses the root directory of the workspace <code>${workspaceFolder}</code>. You can set it to <code>${fileDirname}</code> to use the parent folder of the file being linted as the working directory for Flake8.</td>
         </tr>
         <tr>
             <td>flake8.severity</td>
@@ -91,11 +91,6 @@ The following variables are supported for substitution in the `flake8.args`, `fl
 -   `${workspaceFolder:FolderName}`
 -   `${userHome}`
 -   `${env:EnvVarName}`
-
-The following variables are supported in the `flake8.cwd` setting only, and are resolved per-document at lint time (not at server startup):
-
--   `${fileDirname}` — the directory of the file being linted
--   `${relativeFileDirname}` — the directory of the file relative to the workspace root
 
 The `flake8.path` setting also supports the `${interpreter}` variable as one of the entries of the array. This variable is subtituted based on the value of the `flake8.interpreter` setting.
 
