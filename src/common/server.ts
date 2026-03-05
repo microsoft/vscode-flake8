@@ -19,6 +19,19 @@ import { updateStatus } from './status';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 
+/**
+ * Resolves the CWD for spawning the server process.
+ *
+ * File-based variables (${file*}, ${relativeFile*}) are resolved per-document
+ * by the Python server at lint-time, not at server-spawn time. When the
+ * configured cwd still contains such a variable we fall back to the workspace
+ * path so the server process can be spawned successfully.
+ */
+function getServerCwd(settings: ISettings): string {
+    const hasFileVariable = /\$\{(file|relativeFile)/.test(settings.cwd);
+    return hasFileVariable ? Uri.parse(settings.workspace).fsPath : settings.cwd;
+}
+
 async function createServer(
     settings: ISettings,
     serverId: string,
@@ -27,7 +40,7 @@ async function createServer(
     initializationOptions: IInitOptions,
 ): Promise<LanguageClient> {
     const command = settings.interpreter[0];
-    const cwd = settings.cwd === '${fileDirname}' ? Uri.parse(settings.workspace).fsPath : settings.cwd;
+    const cwd = getServerCwd(settings);
 
     // Set debugger path needed for debugging Python code.
     const newEnv = { ...process.env };
@@ -52,6 +65,7 @@ async function createServer(
             ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])
             : settings.interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
     traceInfo(`Server run command: ${[command, ...args].join(' ')}`);
+    traceInfo(`Server CWD: ${cwd}`);
 
     const serverOptions: ServerOptions = {
         command,
@@ -92,6 +106,7 @@ export async function restartServer(
     _disposables = [];
     updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
+    const serverCwd = getServerCwd(workspaceSetting);
     const newLSClient = await createServer(workspaceSetting, serverId, serverName, outputChannel, {
         settings: await getExtensionSettings(serverId, true),
         globalSettings: await getGlobalSettings(serverId, false),
@@ -119,7 +134,7 @@ export async function restartServer(
         await newLSClient.setTrace(getLSClientTraceLevel(outputChannel.logLevel, env.logLevel));
     } catch (ex) {
         updateStatus(l10n.t('Server failed to start.'), LanguageStatusSeverity.Error);
-        traceError(`Server: Start failed: ${ex}`);
+        traceError(`Server: Start failed (CWD: ${serverCwd}): ${ex}`);
     }
 
     return newLSClient;

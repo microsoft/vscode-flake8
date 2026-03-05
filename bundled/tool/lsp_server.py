@@ -383,6 +383,9 @@ def _create_workspace_edits(
 def initialize(params: lsp.InitializeParams) -> None:
     """LSP handler for initialize request."""
     log_to_output(f"CWD Server: {os.getcwd()}")
+    _init_settings = params.initialization_options.get("settings", [])
+    _cwd_from_setting = _init_settings[0].get("cwd", "<not set>") if _init_settings else "<not set>"
+    log_to_output(f"CWD Server (from setting): {_cwd_from_setting}")
 
     paths = "\r\n   ".join(sys.path)
     log_to_output(f"sys.path used to run Server:\r\n   {paths}")
@@ -639,6 +642,9 @@ def _run_tool_on_document(
 
     code_workspace = settings["workspaceFS"]
     cwd = get_cwd(settings, document)
+    cwd_setting = settings.get("cwd", "<default>")
+    if cwd_setting != cwd:
+        log_to_output(f"CWD setting: {cwd_setting} -> resolved: {cwd}")
 
     use_path = False
     use_rpc = False
@@ -721,6 +727,9 @@ def _run_tool(extra_args: Sequence[str], settings: Dict[str, Any]) -> utils.RunR
     """Runs tool."""
     code_workspace = settings["workspaceFS"]
     cwd = get_cwd(settings, None)
+    cwd_setting = settings.get("cwd", "<default>")
+    if cwd_setting != cwd:
+        log_to_output(f"CWD setting: {cwd_setting} -> resolved: {cwd}")
 
     use_path = False
     use_rpc = False
