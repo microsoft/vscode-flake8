@@ -27,7 +27,7 @@ export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
  * configured cwd still contains such a variable we fall back to the workspace
  * path so the server process can be spawned successfully.
  */
-function getServerCwd(settings: ISettings): string {
+export function getServerCwd(settings: ISettings): string {
     const hasFileVariable = /\$\{(file|relativeFile)/.test(settings.cwd);
     return hasFileVariable ? Uri.parse(settings.workspace).fsPath : settings.cwd;
 }
