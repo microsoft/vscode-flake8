@@ -154,6 +154,11 @@ def change_cwd(new_cwd):
             SERVER_CWD,
             e,
         )
+        logging.warning(
+            "Hint: if flake8.cwd uses a file-variable like "
+            "${fileDirname}, ${relativeFileDirname}, ${file}, or ${relativeFile}, "
+            "ensure it resolves to a valid path in your environment (e.g. WSL)."
+        )
         yield
         return
     try:
