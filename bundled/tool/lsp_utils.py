@@ -32,11 +32,11 @@ def as_list(content: Union[Any, List[Any], Tuple[Any]]) -> List[Any]:
 
 
 def _get_sys_config_paths() -> List[str]:
-    """Returns paths from sysconfig.get_paths()."""
+    """Returns actual Python standard library paths from sysconfig.get_paths()."""
     return [
         path
         for group, path in sysconfig.get_paths().items()
-        if group not in ["data", "platdata", "scripts"]
+        if group in ["stdlib", "platstdlib"]
     ]
 
 
@@ -56,13 +56,23 @@ def _get_extensions_dir() -> List[str]:
 
 _stdlib_paths = set(
     str(pathlib.Path(p).resolve())
-    for p in (
-        as_list(site.getsitepackages())
-        + as_list(site.getusersitepackages())
-        + _get_sys_config_paths()
-        + _get_extensions_dir()
-    )
+    for p in (_get_sys_config_paths() + _get_extensions_dir())
 )
+
+# Store user site packages path separately for specific handling
+try:
+    _user_site = site.getusersitepackages()
+except Exception:
+    _user_site = None
+_user_site_packages = str(pathlib.Path(_user_site).resolve()) if _user_site else None
+
+# Store system site packages paths separately for specific handling
+try:
+    _system_site_packages = set(
+        str(pathlib.Path(p).resolve()) for p in as_list(site.getsitepackages())
+    )
+except Exception:
+    _system_site_packages = set()
 
 
 def is_same_path(file_path1: str, file_path2: str) -> bool:
@@ -83,9 +93,31 @@ def is_current_interpreter(executable) -> bool:
     return is_same_path(executable, sys.executable)
 
 
+def is_user_site_packages_file(file_path: str) -> bool:
+    """Return True if the file belongs to the user site-packages directory."""
+    if _user_site_packages is None:
+        return False
+    normalized_path = normalize_path(file_path, resolve_symlinks=True)
+    return normalized_path.startswith(_user_site_packages)
+
+
+def is_system_site_packages_file(file_path: str) -> bool:
+    """Return True if the file belongs to system site-packages directories."""
+    normalized_path = normalize_path(file_path, resolve_symlinks=True)
+    return any(normalized_path.startswith(path) for path in _system_site_packages)
+
+
 def is_stdlib_file(file_path: str) -> bool:
     """Return True if the file belongs to the standard library."""
     normalized_path = normalize_path(file_path, resolve_symlinks=True)
+
+    # Exclude site-packages and dist-packages directories which contain third-party packages
+    # These are checked separately with their own messages
+    # Use pathlib.PurePath.parts for cross-platform compatibility (handles forward/backward slashes)
+    path_parts = pathlib.PurePath(normalized_path).parts
+    if "site-packages" in path_parts or "dist-packages" in path_parts:
+        return False
+
     return any(normalized_path.startswith(path) for path in _stdlib_paths)
 
 
