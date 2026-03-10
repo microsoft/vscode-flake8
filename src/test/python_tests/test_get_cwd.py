@@ -57,6 +57,10 @@ def _setup_mocks():
         "INITIALIZE",
         "EXIT",
         "SHUTDOWN",
+        "NOTEBOOK_DOCUMENT_DID_OPEN",
+        "NOTEBOOK_DOCUMENT_DID_CHANGE",
+        "NOTEBOOK_DOCUMENT_DID_SAVE",
+        "NOTEBOOK_DOCUMENT_DID_CLOSE",
     ]:
         setattr(mock_lsp, _name, _name)
 
@@ -74,7 +78,15 @@ def _setup_mocks():
         "DidCloseTextDocumentParams",
         "DidOpenTextDocumentParams",
         "DidSaveTextDocumentParams",
+        "DidChangeNotebookDocumentParams",
+        "DidCloseNotebookDocumentParams",
+        "DidOpenNotebookDocumentParams",
+        "DidSaveNotebookDocumentParams",
         "InitializeParams",
+        "NotebookCellKind",
+        "NotebookCellLanguage",
+        "NotebookDocumentFilterWithNotebook",
+        "NotebookDocumentSyncOptions",
         "Position",
         "Range",
         "TextEdit",
