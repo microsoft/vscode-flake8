@@ -190,7 +190,9 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
         document.path = _get_document_path(cell_content.document.uri)
         diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
         LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=cell_content.document.uri, diagnostics=diagnostics)
+            lsp.PublishDiagnosticsParams(
+                uri=cell_content.document.uri, diagnostics=diagnostics
+            )
         )
 
     structure = params.change.cells.structure
@@ -198,11 +200,13 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
         for cell_doc in structure.did_open:
             if cell_doc.language_id != "python":
                 continue
-            document = LSP_SERVER.workspace.get_text_document(cell_doc.document.uri)
-            document.path = _get_document_path(cell_doc.document.uri)
-            diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
+            document = LSP_SERVER.workspace.get_text_document(cell_doc.uri)
+            document.path = _get_document_path(cell_doc.uri)
+            diagnostics: list[lsp.Diagnostic] = _linting_helper(
+                document, is_notebook=True
+            )
             LSP_SERVER.text_document_publish_diagnostics(
-                lsp.PublishDiagnosticsParams(uri=cell_doc.document.uri, diagnostics=diagnostics)
+                lsp.PublishDiagnosticsParams(uri=cell_doc.uri, diagnostics=diagnostics)
             )
 
     if structure and structure.did_close:
@@ -249,13 +253,15 @@ def _is_supported_file(document: TextDocument) -> bool:
     return False
 
 
-def _linting_helper(document: TextDocument, is_notebook: bool = False) -> list[lsp.Diagnostic]:
+def _linting_helper(
+    document: TextDocument, is_notebook: bool = False
+) -> list[lsp.Diagnostic]:
     try:
         if not _is_supported_file(document):
             log_always(f"Skipping linting for {document.uri} skipped: not supported")
             return []
 
-        # If notebook set use_stdin=True to pass the document *content* to the tool, not its path. 
+        # If notebook set use_stdin=True to pass the document *content* to the tool, not its path.
         result = _run_tool_on_document(document, use_stdin=is_notebook)
         if result and result.stdout:
             log_to_output(f"{document.uri} :\r\n{result.stdout}")
