@@ -98,19 +98,19 @@ LSP_SERVER = LanguageServer(
 )
 
 
-def _get_document_path(document: TextDocument) -> str:
+def _get_document_path(document: str) -> str:
     """Returns the filesystem path for a document.
 
     Examples:
         file:///path/to/file.py -> /path/to/file.py
         vscode-notebook-cell:/path/to/notebook.ipynb#C00001 -> /path/to/notebook.ipynb
     """
-    if not document.uri.startswith("file:"):
-        parsed = urlparse(document.uri)
+    if not document.startswith("file:"):
+        parsed = urlparse(document)
         file_uri = urlunparse(("file", *parsed[1:-1], ""))
         if result := uris.to_fs_path(file_uri):
             return result
-    return document.path
+    return uris.to_fs_path(document) or document
 
 
 # **********************************************************
@@ -172,9 +172,10 @@ def notebook_did_open(params: lsp.DidOpenNotebookDocumentParams) -> None:
         if cell.kind != lsp.NotebookCellKind.Code or cell.document is None:
             continue
         document = LSP_SERVER.workspace.get_text_document(cell.document)
-        diagnostics: list[lsp.Diagnostic] = _linting_helper(document)
+        document.path = _get_document_path(cell.document)
+        diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
         LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=diagnostics)
+            lsp.PublishDiagnosticsParams(uri=cell.document, diagnostics=diagnostics)
         )
 
 
@@ -186,9 +187,10 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
 
     for cell_content in params.change.cells.text_content or []:
         document = LSP_SERVER.workspace.get_text_document(cell_content.document.uri)
-        diagnostics: list[lsp.Diagnostic] = _linting_helper(document)
+        document.path = _get_document_path(cell_content.document.uri)
+        diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
         LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=diagnostics)
+            lsp.PublishDiagnosticsParams(uri=cell_content.document.uri, diagnostics=diagnostics)
         )
 
     structure = params.change.cells.structure
@@ -196,10 +198,11 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
         for cell_doc in structure.did_open:
             if cell_doc.language_id != "python":
                 continue
-            document = LSP_SERVER.workspace.get_text_document(cell_doc.uri)
-            diagnostics: list[lsp.Diagnostic] = _linting_helper(document)
+            document = LSP_SERVER.workspace.get_text_document(cell_doc.document.uri)
+            document.path = _get_document_path(cell_doc.document.uri)
+            diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
             LSP_SERVER.text_document_publish_diagnostics(
-                lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=diagnostics)
+                lsp.PublishDiagnosticsParams(uri=cell_doc.document.uri, diagnostics=diagnostics)
             )
 
     if structure and structure.did_close:
@@ -221,9 +224,10 @@ def notebook_did_save(params: lsp.DidSaveNotebookDocumentParams) -> None:
         if cell.kind != lsp.NotebookCellKind.Code or cell.document is None:
             continue
         document = LSP_SERVER.workspace.get_text_document(cell.document)
-        diagnostics: list[lsp.Diagnostic] = _linting_helper(document)
+        document.path = _get_document_path(cell.document)
+        diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
         LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=diagnostics)
+            lsp.PublishDiagnosticsParams(uri=cell.document, diagnostics=diagnostics)
         )
 
 
@@ -245,13 +249,14 @@ def _is_supported_file(document: TextDocument) -> bool:
     return False
 
 
-def _linting_helper(document: TextDocument) -> list[lsp.Diagnostic]:
+def _linting_helper(document: TextDocument, is_notebook: bool = False) -> list[lsp.Diagnostic]:
     try:
         if not _is_supported_file(document):
             log_always(f"Skipping linting for {document.uri} skipped: not supported")
             return []
 
-        result = _run_tool_on_document(document, use_stdin=False)
+        # If notebook set use_stdin=True to pass the document *content* to the tool, not its path. 
+        result = _run_tool_on_document(document, use_stdin=is_notebook)
         if result and result.stdout:
             log_to_output(f"{document.uri} :\r\n{result.stdout}")
 
