@@ -419,10 +419,7 @@ def test_notebook_cell_reports_specific_error():
 
         def _handler(params):
             received.append(params)
-            if (
-                params.get("uri") == code_cell_uri
-                and params.get("diagnostics")
-            ):
+            if params.get("uri") == code_cell_uri and params.get("diagnostics"):
                 done.set()
 
         ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
@@ -448,19 +445,19 @@ def test_notebook_cell_reports_specific_error():
 
         # Use the last diagnostic notification (most up-to-date)
         diagnostics = cell_results[-1]["diagnostics"]
-        assert len(diagnostics) == 1, (
-            f"Expected exactly 1 diagnostic, got {len(diagnostics)}: {diagnostics}"
-        )
+        assert (
+            len(diagnostics) == 1
+        ), f"Expected exactly 1 diagnostic, got {len(diagnostics)}: {diagnostics}"
 
         diag = diagnostics[0]
         assert diag["code"] == "F401", f"Expected code F401, got {diag['code']!r}"
-        assert "'os' imported but unused" in diag["message"], (
-            f"Unexpected message: {diag['message']!r}"
-        )
+        assert (
+            "'os' imported but unused" in diag["message"]
+        ), f"Unexpected message: {diag['message']!r}"
         assert diag["severity"] == 1, f"Expected severity 1, got {diag['severity']}"
-        assert diag["source"] == LINTER["name"], (
-            f"Expected source {LINTER['name']!r}, got {diag['source']!r}"
-        )
+        assert (
+            diag["source"] == LINTER["name"]
+        ), f"Expected source {LINTER['name']!r}, got {diag['source']!r}"
         assert diag["range"] == {
             "start": {"line": 0, "character": 0},
             "end": {"line": 0, "character": 0},
