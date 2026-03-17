@@ -171,12 +171,7 @@ def notebook_did_open(params: lsp.DidOpenNotebookDocumentParams) -> None:
     for cell in nb.cells:
         if cell.kind != lsp.NotebookCellKind.Code or cell.document is None:
             continue
-        document = LSP_SERVER.workspace.get_text_document(cell.document)
-        document.path = _get_document_path(cell.document)
-        diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
-        LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=cell.document, diagnostics=diagnostics)
-        )
+        _lint_notebook_cell(cell.document)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CHANGE)
@@ -186,34 +181,18 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
         return
 
     for cell_content in params.change.cells.text_content or []:
-        document = LSP_SERVER.workspace.get_text_document(cell_content.document.uri)
-        document.path = _get_document_path(cell_content.document.uri)
-        diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
-        LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(
-                uri=cell_content.document.uri, diagnostics=diagnostics
-            )
-        )
+        _lint_notebook_cell(cell_content.document.uri)
 
     structure = params.change.cells.structure
     if structure and structure.did_open:
         for cell_doc in structure.did_open:
             if cell_doc.language_id != "python":
                 continue
-            document = LSP_SERVER.workspace.get_text_document(cell_doc.uri)
-            document.path = _get_document_path(cell_doc.uri)
-            diagnostics: list[lsp.Diagnostic] = _linting_helper(
-                document, is_notebook=True
-            )
-            LSP_SERVER.text_document_publish_diagnostics(
-                lsp.PublishDiagnosticsParams(uri=cell_doc.uri, diagnostics=diagnostics)
-            )
+            _lint_notebook_cell(cell_doc.uri)
 
     if structure and structure.did_close:
         for cell_doc in structure.did_close:
-            LSP_SERVER.text_document_publish_diagnostics(
-                lsp.PublishDiagnosticsParams(uri=cell_doc.uri, diagnostics=[])
-            )
+            _clear_notebook_cell_diagnostics(cell_doc.uri)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_SAVE)
@@ -227,21 +206,14 @@ def notebook_did_save(params: lsp.DidSaveNotebookDocumentParams) -> None:
     for cell in nb.cells:
         if cell.kind != lsp.NotebookCellKind.Code or cell.document is None:
             continue
-        document = LSP_SERVER.workspace.get_text_document(cell.document)
-        document.path = _get_document_path(cell.document)
-        diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
-        LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=cell.document, diagnostics=diagnostics)
-        )
+        _lint_notebook_cell(cell.document)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CLOSE)
 def notebook_did_close(params: lsp.DidCloseNotebookDocumentParams) -> None:
     """Clear diagnostics for all cells when the notebook is closed."""
     for cell_doc in params.cell_text_documents:
-        LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=cell_doc.uri, diagnostics=[])
-        )
+        _clear_notebook_cell_diagnostics(cell_doc.uri)
 
 
 def _is_supported_file(document: TextDocument) -> bool:
@@ -251,6 +223,25 @@ def _is_supported_file(document: TextDocument) -> bool:
         return file_path.exists()
 
     return False
+
+
+def _lint_notebook_cell(cell_uri: str) -> None:
+    """Lint a single notebook cell and publish its diagnostics."""
+    document = LSP_SERVER.workspace.get_text_document(cell_uri)
+    document.path = _get_document_path(
+        cell_uri
+    )  # Update path as pygls generates an invalid path.
+    diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
+    LSP_SERVER.text_document_publish_diagnostics(
+        lsp.PublishDiagnosticsParams(uri=cell_uri, diagnostics=diagnostics)
+    )
+
+
+def _clear_notebook_cell_diagnostics(cell_uri: str) -> None:
+    """Clear diagnostics for a single notebook cell."""
+    LSP_SERVER.text_document_publish_diagnostics(
+        lsp.PublishDiagnosticsParams(uri=cell_uri, diagnostics=[])
+    )
 
 
 def _linting_helper(
