@@ -189,7 +189,8 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
         return
 
     for cell_content in params.change.cells.text_content or []:
-        _lint_notebook_cell(cell_content.document.uri)
+        if cell_content.document and cell_content.document.language_id == "python":
+            _lint_notebook_cell(cell_content.document.uri)
 
     structure = params.change.cells.structure
     if structure and structure.did_open:
