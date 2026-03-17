@@ -180,7 +180,7 @@ def notebook_did_open(params: lsp.DidOpenNotebookDocumentParams) -> None:
     for cell in nb.cells:
         if cell.kind == lsp.NotebookCellKind.Code and cell.document is not None:
             text_document = LSP_SERVER.workspace.get_text_document(cell.document)
-            if text_document is not None and text_document.language_id == "python":
+            if text_document is not None:
                 _lint_notebook_cell(text_document.uri)
 
 
@@ -191,14 +191,13 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
         return
 
     for cell_content in params.change.cells.text_content or []:
-        if cell_content.document and cell_content.document.language_id == "python":
+        if cell_content.document:
             _lint_notebook_cell(cell_content.document.uri)
 
     structure = params.change.cells.structure
     if structure and structure.did_open:
         for cell_doc in structure.did_open:
-            if cell_doc.language_id == "python":
-                _lint_notebook_cell(cell_doc.uri)
+            _lint_notebook_cell(cell_doc.uri)
 
     if structure and structure.did_close:
         for cell_doc in structure.did_close:
@@ -214,12 +213,8 @@ def notebook_did_save(params: lsp.DidSaveNotebookDocumentParams) -> None:
     if nb is None:
         return
     for cell in nb.cells:
-        if (
-            cell.kind == lsp.NotebookCellKind.Code
-            and cell.document is not None
-            and cell.document.language_id == "python"
-        ):
-            _lint_notebook_cell(cell.document.uri)
+        if cell.kind == lsp.NotebookCellKind.Code and cell.document is not None:
+            _lint_notebook_cell(cell.document)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CLOSE)
@@ -241,9 +236,11 @@ def _is_supported_file(document: TextDocument) -> bool:
 def _lint_notebook_cell(cell_uri: str) -> None:
     """Lint a single notebook cell and publish its diagnostics."""
     document = LSP_SERVER.workspace.get_text_document(cell_uri)
-    document.path = _get_document_path(
-        cell_uri
-    )  # Update path as pygls generates an invalid path.
+    # Update path as pygls generates an invalid path.
+    document.path = _get_document_path(cell_uri)
+    # Linting is only supported for python cells in notebooks.
+    if document.language_id != "python":
+        return
     diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
     LSP_SERVER.text_document_publish_diagnostics(
         lsp.PublishDiagnosticsParams(uri=cell_uri, diagnostics=diagnostics)
