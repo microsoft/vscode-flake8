@@ -178,9 +178,8 @@ def notebook_did_open(params: lsp.DidOpenNotebookDocumentParams) -> None:
     if nb is None:
         return
     for cell in nb.cells:
-        if cell.kind != lsp.NotebookCellKind.Code or cell.document is None:
-            continue
-        _lint_notebook_cell(cell.document)
+        if cell.kind == lsp.NotebookCellKind.Code and cell.document is not None:
+            _lint_notebook_cell(cell.document)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CHANGE)
@@ -195,9 +194,8 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
     structure = params.change.cells.structure
     if structure and structure.did_open:
         for cell_doc in structure.did_open:
-            if cell_doc.language_id != "python":
-                continue
-            _lint_notebook_cell(cell_doc.uri)
+            if cell_doc.language_id == "python":
+                _lint_notebook_cell(cell_doc.uri)
 
     if structure and structure.did_close:
         for cell_doc in structure.did_close:
@@ -213,9 +211,8 @@ def notebook_did_save(params: lsp.DidSaveNotebookDocumentParams) -> None:
     if nb is None:
         return
     for cell in nb.cells:
-        if cell.kind != lsp.NotebookCellKind.Code or cell.document is None:
-            continue
-        _lint_notebook_cell(cell.document)
+        if cell.kind == lsp.NotebookCellKind.Code and cell.document is not None:
+            _lint_notebook_cell(cell.document)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CLOSE)
