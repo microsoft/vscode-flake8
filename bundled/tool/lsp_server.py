@@ -226,7 +226,9 @@ def _is_supported_file(document: TextDocument) -> bool:
     """Checks if the given document is supported by this tool."""
     if document.path:
         file_path = pathlib.Path(document.path)
-        return file_path.exists() and file_path.suffix in [".py", ".pyi", ".ipynb"]
+        return file_path.exists() and (
+            document.language_id == "python" or document.language_id == "ipynb"
+        )
 
     return False
 
