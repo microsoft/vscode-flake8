@@ -196,12 +196,12 @@ def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
 
     structure = params.change.cells.structure
     if structure and structure.did_open:
-        for cell_doc in structure.did_open:
-            _lint_notebook_cell(cell_doc.uri)
+        for cell_document in structure.did_open:
+            _lint_notebook_cell(cell_document.uri)
 
     if structure and structure.did_close:
-        for cell_doc in structure.did_close:
-            _clear_notebook_cell_diagnostics(cell_doc.uri)
+        for cell_document in structure.did_close:
+            _clear_notebook_cell_diagnostics(cell_document.uri)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_SAVE)
