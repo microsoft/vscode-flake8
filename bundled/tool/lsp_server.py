@@ -107,7 +107,16 @@ def _get_document_path(document: str) -> str:
     """
     if not document.startswith("file:"):
         parsed = urlparse(document)
-        file_uri = urlunparse(("file", *parsed[1:-1], ""))
+        file_uri = urlunparse(
+            (
+                "file",
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                parsed.query,
+                parsed.fragment,
+            )
+        )
         if result := uris.to_fs_path(file_uri):
             return result
     return uris.to_fs_path(document) or document
@@ -220,7 +229,7 @@ def _is_supported_file(document: TextDocument) -> bool:
     """Checks if the given document is supported by this tool."""
     if document.path:
         file_path = pathlib.Path(document.path)
-        return file_path.exists()
+        return file_path.exists() and file_path.suffix in [".py", ".pyi", ".ipynb"]
 
     return False
 
@@ -248,7 +257,7 @@ def _linting_helper(
     document: TextDocument, is_notebook: bool = False
 ) -> list[lsp.Diagnostic]:
     try:
-        if not _is_supported_file(document):
+        if not is_notebook and not _is_supported_file(document):
             log_always(f"Skipping linting for {document.uri} skipped: not supported")
             return []
 
