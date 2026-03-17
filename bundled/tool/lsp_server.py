@@ -114,7 +114,7 @@ def _get_document_path(document: str) -> str:
                 parsed.path,
                 parsed.params,
                 parsed.query,
-                parsed.fragment,
+                "",
             )
         )
         if result := uris.to_fs_path(file_uri):
