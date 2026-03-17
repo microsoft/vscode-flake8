@@ -364,7 +364,7 @@ def test_notebook_did_close():
             }
         )
 
-        open_done.wait(TIMEOUT)
+        assert open_done.wait(TIMEOUT), "Timed out waiting for initial notebook diagnostics"
 
         # Now set up a fresh callback for the close notification
         done = Event()
