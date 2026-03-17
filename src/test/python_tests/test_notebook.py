@@ -16,6 +16,7 @@ from .lsp_test_client import constants, defaults, session, utils
 TIMEOUT = 10  # seconds
 
 SAMPLE_NOTEBOOK = constants.TEST_DATA / "sample1" / "sample_notebook.ipynb"
+LINTER = utils.get_server_info_defaults()
 
 
 def _make_notebook_uri(notebook_path: str) -> str:
@@ -394,3 +395,73 @@ def test_notebook_did_close():
             r.get("uri") == code_cell_uri and r.get("diagnostics") == []
             for r in received
         ), f"Expected empty diagnostics for {code_cell_uri!r}, got: {received}"
+
+
+SAMPLE_NOTEBOOK_ERR = constants.TEST_DATA / "sample1" / "sample_notebook_err.ipynb"
+
+
+def test_notebook_cell_reports_specific_error():
+    """Diagnostics for a notebook cell contain the expected flake8 error details.
+
+    When a notebook is opened with a cell containing a known flake8 violation
+    (F401 – unused import), the published diagnostic must include the correct
+    error code, message, severity, source, and range.
+    """
+    nb_path = str(SAMPLE_NOTEBOOK_ERR)
+    nb_uri, cells, cell_text_documents = _load_notebook(nb_path)
+    code_cell_uri = cell_text_documents[0]["uri"]  # first code cell has `import os`
+
+    with session.LspSession() as ls_session:
+        ls_session.initialize(defaults.vscode_initialize_defaults())
+
+        done = Event()
+        received = []
+
+        def _handler(params):
+            received.append(params)
+            if (
+                params.get("uri") == code_cell_uri
+                and params.get("diagnostics")
+            ):
+                done.set()
+
+        ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
+
+        ls_session.notify_notebook_did_open(
+            {
+                "notebookDocument": {
+                    "uri": nb_uri,
+                    "notebookType": "jupyter-notebook",
+                    "version": 1,
+                    "metadata": {},
+                    "cells": cells,
+                },
+                "cellTextDocuments": cell_text_documents,
+            }
+        )
+
+        done.wait(TIMEOUT)
+
+        # Find the diagnostics for the target cell
+        cell_results = [r for r in received if r.get("uri") == code_cell_uri]
+        assert cell_results, f"No diagnostics received for {code_cell_uri!r}"
+
+        # Use the last diagnostic notification (most up-to-date)
+        diagnostics = cell_results[-1]["diagnostics"]
+        assert len(diagnostics) == 1, (
+            f"Expected exactly 1 diagnostic, got {len(diagnostics)}: {diagnostics}"
+        )
+
+        diag = diagnostics[0]
+        assert diag["code"] == "F401", f"Expected code F401, got {diag['code']!r}"
+        assert "'os' imported but unused" in diag["message"], (
+            f"Unexpected message: {diag['message']!r}"
+        )
+        assert diag["severity"] == 1, f"Expected severity 1, got {diag['severity']}"
+        assert diag["source"] == LINTER["name"], (
+            f"Expected source {LINTER['name']!r}, got {diag['source']!r}"
+        )
+        assert diag["range"] == {
+            "start": {"line": 0, "character": 0},
+            "end": {"line": 0, "character": 0},
+        }, f"Unexpected range: {diag['range']}"
