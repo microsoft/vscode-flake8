@@ -119,7 +119,7 @@ def test_notebook_did_open():
             }
         )
 
-        done.wait(TIMEOUT)
+        assert done.wait(TIMEOUT)
         assert any(
             r.get("uri") == code_cell_uri for r in received
         ), f"Expected diagnostics for {code_cell_uri!r}, got: {received}"
@@ -184,7 +184,7 @@ def test_notebook_did_change_text_content():
             }
         )
 
-        done.wait(TIMEOUT)
+        assert done.wait(TIMEOUT)
         assert any(
             r.get("uri") == code_cell_uri for r in received
         ), f"Expected diagnostics for {code_cell_uri!r}, got: {received}"
@@ -231,7 +231,7 @@ def test_notebook_did_save():
             }
         )
 
-        done.wait(TIMEOUT)
+        assert done.wait(TIMEOUT)
         assert any(
             r.get("uri") == code_cell_uri for r in received
         ), f"Expected diagnostics for {code_cell_uri!r}, got: {received}"
@@ -314,7 +314,7 @@ def test_notebook_did_change_new_cell_kind_filter():
             }
         )
 
-        done.wait(TIMEOUT)
+        assert done.wait(TIMEOUT)
 
         # The code cell should receive diagnostics; the markdown cell must not.
         uris_with_diagnostics = {r.get("uri") for r in received}
@@ -390,7 +390,7 @@ def test_notebook_did_close():
             }
         )
 
-        done.wait(TIMEOUT)
+        assert done.wait(TIMEOUT)
 
         # Diagnostics should be cleared (empty list) for the cell URI
         assert any(
@@ -439,7 +439,7 @@ def test_notebook_cell_reports_specific_error():
             }
         )
 
-        done.wait(TIMEOUT)
+        assert done.wait(TIMEOUT)
 
         # Find the diagnostics for the target cell
         cell_results = [r for r in received if r.get("uri") == code_cell_uri]

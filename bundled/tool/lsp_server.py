@@ -179,9 +179,7 @@ def notebook_did_open(params: lsp.DidOpenNotebookDocumentParams) -> None:
         return
     for cell in nb.cells:
         if cell.kind == lsp.NotebookCellKind.Code and cell.document is not None:
-            text_document = LSP_SERVER.workspace.get_text_document(cell.document)
-            if text_document is not None:
-                _lint_notebook_cell(text_document.uri)
+            _lint_notebook_cell(cell.document)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CHANGE)
@@ -236,6 +234,8 @@ def _is_supported_file(document: TextDocument) -> bool:
 def _lint_notebook_cell(cell_uri: str) -> None:
     """Lint a single notebook cell and publish its diagnostics."""
     document = LSP_SERVER.workspace.get_text_document(cell_uri)
+    if document is None:
+        return
     # Update path as pygls generates an invalid path.
     document.path = _get_document_path(cell_uri)
     # Linting is only supported for python cells in notebooks.
