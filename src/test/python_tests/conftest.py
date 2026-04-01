@@ -14,7 +14,6 @@ import types
 import pytest
 from unittest.mock import patch
 
-
 # ---------------------------------------------------------------------------
 # Module-level mock injection
 # ---------------------------------------------------------------------------
