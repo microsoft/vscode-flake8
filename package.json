@@ -182,7 +182,7 @@
                     "type": "object"
                 },
                 "flake8.showNotifications": {
-                    "default": "off",
+                    "default": "onError",
                     "markdownDescription": "%settings.showNotifications.description%",
                     "enum": [
                         "off",

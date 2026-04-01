@@ -265,20 +265,22 @@ def _linting_helper(
 
         # If notebook set use_stdin=True to pass the document *content* to the tool, not its path.
         result = _run_tool_on_document(document, use_stdin=is_notebook)
-        if result and result.stdout:
-            log_to_output(f"{document.uri} :\r\n{result.stdout}")
+        if result:
+            if result.stderr:
+                log_warning(
+                    f"Flake8 stderr for {document.uri}:\r\n{result.stderr}"
+                )
+            if result.stdout:
+                log_to_output(f"{document.uri} :\r\n{result.stdout}")
 
-            # deep copy here to prevent accidentally updating global settings.
-            settings = copy.deepcopy(_get_settings_by_document(document))
-            return _parse_output_using_regex(
-                result.stdout, severity=settings["severity"]
-            )
+                # deep copy here to prevent accidentally updating global settings.
+                settings = copy.deepcopy(_get_settings_by_document(document))
+                return _parse_output_using_regex(
+                    result.stdout, severity=settings["severity"]
+                )
     except Exception:
-        LSP_SERVER.window_log_message(
-            lsp.LogMessageParams(
-                message=f"Linting failed with error:\r\n{traceback.format_exc()}",
-                type=lsp.MessageType.Error,
-            )
+        log_error(
+            f"Linting failed with error:\r\n{traceback.format_exc()}"
         )
     return []
 
@@ -597,7 +599,7 @@ def _get_global_defaults():
         ),
         "ignorePatterns": GLOBAL_SETTINGS.get("ignorePatterns", []),
         "importStrategy": GLOBAL_SETTINGS.get("importStrategy", "useBundled"),
-        "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "off"),
+        "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "onError"),
     }
 
 
