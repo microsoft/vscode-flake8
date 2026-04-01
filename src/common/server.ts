@@ -36,7 +36,10 @@ function parseEnvFile(content: string): Record<string, string> {
         if (eqIndex < 0) {
             continue;
         }
-        const key = trimmed.substring(0, eqIndex).trim();
+        const key = trimmed
+            .substring(0, eqIndex)
+            .trim()
+            .replace(/^export\s+/, '');
         let value = trimmed.substring(eqIndex + 1).trim();
         // Strip surrounding quotes
         if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
@@ -85,7 +88,7 @@ async function loadEnvFile(workspacePath: string): Promise<Record<string, string
  */
 export function getServerCwd(settings: ISettings): string {
     const hasFileVariable = /\$\{(file|relativeFile)/.test(settings.cwd);
-    return hasFileVariable ? Uri.parse(settings.workspace).fsPath : settings.cwd;
+    return hasFileVariable ? Uri.file(settings.workspace).fsPath : settings.cwd;
 }
 
 async function createServer(
@@ -102,7 +105,7 @@ async function createServer(
     const newEnv = { ...process.env };
 
     // Load environment variables from python.envFile (.env)
-    const workspacePath = Uri.parse(settings.workspace).fsPath;
+    const workspacePath = Uri.file(settings.workspace).fsPath;
     const envFileVars = await loadEnvFile(workspacePath);
     Object.assign(newEnv, envFileVars);
 
