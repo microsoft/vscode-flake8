@@ -11,9 +11,15 @@ import pathlib
 import re
 import sys
 import sysconfig
+import threading
 import traceback
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 from urllib.parse import urlparse, urlunparse
+
+# Debounce delay for on-save linting (in seconds)
+_SAVE_DEBOUNCE_DELAY = 0.3
+_save_timers: Dict[str, threading.Timer] = {}
+_save_timers_lock = threading.Lock()
 
 
 # **********************************************************
@@ -151,12 +157,29 @@ def did_open(params: lsp.DidOpenTextDocumentParams) -> None:
 
 @LSP_SERVER.feature(lsp.TEXT_DOCUMENT_DID_SAVE)
 def did_save(params: lsp.DidSaveTextDocumentParams) -> None:
-    """LSP handler for textDocument/didSave request."""
-    document = LSP_SERVER.workspace.get_text_document(params.text_document.uri)
-    diagnostics: list[lsp.Diagnostic] = _linting_helper(document)
-    LSP_SERVER.text_document_publish_diagnostics(
-        lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=diagnostics)
-    )
+    """LSP handler for textDocument/didSave request.
+
+    Debounces rapid saves so that flake8 only runs once after the user
+    finishes a burst of save operations (e.g. auto-save or repeated Ctrl+S).
+    """
+    uri = params.text_document.uri
+
+    def _run_lint() -> None:
+        with _save_timers_lock:
+            _save_timers.pop(uri, None)
+        document = LSP_SERVER.workspace.get_text_document(uri)
+        diagnostics: list[lsp.Diagnostic] = _linting_helper(document)
+        LSP_SERVER.text_document_publish_diagnostics(
+            lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=diagnostics)
+        )
+
+    with _save_timers_lock:
+        existing = _save_timers.get(uri)
+        if existing is not None:
+            existing.cancel()
+        timer = threading.Timer(_SAVE_DEBOUNCE_DELAY, _run_lint)
+        _save_timers[uri] = timer
+        timer.start()
 
 
 @LSP_SERVER.feature(lsp.TEXT_DOCUMENT_DID_CLOSE)
