@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import * as fsapi from 'fs-extra';
+import * as path from 'path';
 import { Disposable, env, l10n, LanguageStatusSeverity, LogOutputChannel, Uri } from 'vscode';
 import { State } from 'vscode-languageclient';
 import {
@@ -16,8 +17,63 @@ import { getDebuggerPath } from './python';
 import { getExtensionSettings, getGlobalSettings, ISettings } from './settings';
 import { getLSClientTraceLevel, getDocumentSelector } from './utilities';
 import { updateStatus } from './status';
+import { getConfiguration } from './vscodeapi';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
+
+/**
+ * Parses a .env file and returns a record of environment variables.
+ * Supports KEY=VALUE, KEY="VALUE", KEY='VALUE', comments (#), and empty lines.
+ */
+function parseEnvFile(content: string): Record<string, string> {
+    const env: Record<string, string> = {};
+    for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) {
+            continue;
+        }
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex < 0) {
+            continue;
+        }
+        const key = trimmed.substring(0, eqIndex).trim();
+        let value = trimmed.substring(eqIndex + 1).trim();
+        // Strip surrounding quotes
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+        }
+        if (key) {
+            env[key] = value;
+        }
+    }
+    return env;
+}
+
+/**
+ * Reads environment variables from the configured python.envFile (defaults
+ * to `${workspaceFolder}/.env`). Returns an empty record when the file
+ * does not exist or cannot be read.
+ */
+async function loadEnvFile(workspacePath: string): Promise<Record<string, string>> {
+    try {
+        const pythonConfig = getConfiguration('python');
+        let envFilePath = pythonConfig.get<string>('envFile', '${workspaceFolder}/.env');
+        envFilePath = envFilePath.replace('${workspaceFolder}', workspacePath);
+
+        if (await fsapi.pathExists(envFilePath)) {
+            const content = await fsapi.readFile(envFilePath, 'utf-8');
+            const envVars = parseEnvFile(content);
+            const count = Object.keys(envVars).length;
+            if (count > 0) {
+                traceInfo(`Loaded ${count} environment variable(s) from ${envFilePath}`);
+            }
+            return envVars;
+        }
+    } catch (ex) {
+        traceError(`Failed to load envFile: ${ex}`);
+    }
+    return {};
+}
 
 /**
  * Resolves the CWD for spawning the server process.
@@ -44,6 +100,12 @@ async function createServer(
 
     // Set debugger path needed for debugging Python code.
     const newEnv = { ...process.env };
+
+    // Load environment variables from python.envFile (.env)
+    const workspacePath = Uri.parse(settings.workspace).fsPath;
+    const envFileVars = await loadEnvFile(workspacePath);
+    Object.assign(newEnv, envFileVars);
+
     const debuggerPath = await getDebuggerPath();
     const isDebugScript = await fsapi.pathExists(DEBUG_SERVER_SCRIPT_PATH);
     if (newEnv.USE_DEBUGPY && debuggerPath) {
