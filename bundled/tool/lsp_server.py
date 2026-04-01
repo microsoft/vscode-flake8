@@ -16,10 +16,9 @@ import traceback
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 from urllib.parse import urlparse, urlunparse
 
-# Debounce delay for on-save linting (in seconds)
-_SAVE_DEBOUNCE_DELAY = 0.3
-_save_timers: Dict[str, threading.Timer] = {}
-_save_timers_lock = threading.Lock()
+# Track lint request versions per URI to discard stale results from superseded runs.
+_lint_versions: Dict[str, int] = {}
+_lint_versions_lock = threading.Lock()
 
 
 # **********************************************************
@@ -157,29 +156,12 @@ def did_open(params: lsp.DidOpenTextDocumentParams) -> None:
 
 @LSP_SERVER.feature(lsp.TEXT_DOCUMENT_DID_SAVE)
 def did_save(params: lsp.DidSaveTextDocumentParams) -> None:
-    """LSP handler for textDocument/didSave request.
-
-    Debounces rapid saves so that flake8 only runs once after the user
-    finishes a burst of save operations (e.g. auto-save or repeated Ctrl+S).
-    """
-    uri = params.text_document.uri
-
-    def _run_lint() -> None:
-        with _save_timers_lock:
-            _save_timers.pop(uri, None)
-        document = LSP_SERVER.workspace.get_text_document(uri)
-        diagnostics: list[lsp.Diagnostic] = _linting_helper(document)
-        LSP_SERVER.text_document_publish_diagnostics(
-            lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=diagnostics)
-        )
-
-    with _save_timers_lock:
-        existing = _save_timers.get(uri)
-        if existing is not None:
-            existing.cancel()
-        timer = threading.Timer(_SAVE_DEBOUNCE_DELAY, _run_lint)
-        _save_timers[uri] = timer
-        timer.start()
+    """LSP handler for textDocument/didSave request."""
+    document = LSP_SERVER.workspace.get_text_document(params.text_document.uri)
+    diagnostics: list[lsp.Diagnostic] = _linting_helper(document)
+    LSP_SERVER.text_document_publish_diagnostics(
+        lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=diagnostics)
+    )
 
 
 @LSP_SERVER.feature(lsp.TEXT_DOCUMENT_DID_CLOSE)
@@ -286,13 +268,29 @@ def _linting_helper(
             log_always(f"Skipping linting for {document.uri} skipped: not supported")
             return []
 
+        # Bump the version for this URI so any concurrent or queued lint for
+        # the same document can detect that it has been superseded.
+        with _lint_versions_lock:
+            lint_version = _lint_versions.get(document.uri, 0) + 1
+            _lint_versions[document.uri] = lint_version
+
         # If notebook set use_stdin=True to pass the document *content* to the tool, not its path.
         result = _run_tool_on_document(document, use_stdin=is_notebook)
+
+        # If a newer lint request arrived while we were running, discard
+        # these stale results — the newer request will publish its own.
+        with _lint_versions_lock:
+            if _lint_versions.get(document.uri, 0) != lint_version:
+                log_to_output(
+                    f"Discarding stale lint results for {document.uri} "
+                    f"(version {lint_version} superseded by "
+                    f"{_lint_versions[document.uri]})"
+                )
+                return []
+
         if result:
             if result.stderr:
-                log_warning(
-                    f"Flake8 stderr for {document.uri}:\r\n{result.stderr}"
-                )
+                log_warning(f"Flake8 stderr for {document.uri}:\r\n{result.stderr}")
             if result.stdout:
                 log_to_output(f"{document.uri} :\r\n{result.stdout}")
 
@@ -302,9 +300,7 @@ def _linting_helper(
                     result.stdout, severity=settings["severity"]
                 )
     except Exception:
-        log_error(
-            f"Linting failed with error:\r\n{traceback.format_exc()}"
-        )
+        log_error(f"Linting failed with error:\r\n{traceback.format_exc()}")
     return []
 
 
