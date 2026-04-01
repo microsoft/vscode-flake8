@@ -173,7 +173,13 @@ export async function restartServer(
             traceError(`Server: Stop failed: ${ex}`);
         }
     }
-    _disposables.forEach((d) => d.dispose());
+    _disposables.forEach((d) => {
+        try {
+            d.dispose();
+        } catch (ex) {
+            traceError(`Failed to dispose: ${ex}`);
+        }
+    });
     _disposables = [];
     updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
