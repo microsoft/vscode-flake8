@@ -10,9 +10,9 @@ fixtures for patching the LSP_SERVER singleton.
 import pathlib
 import sys
 import types
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
 # Module-level mock injection
