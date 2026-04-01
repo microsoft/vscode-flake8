@@ -18,6 +18,7 @@ function makeSettings(cwd: string, workspace: string): ISettings {
         interpreter: [],
         importStrategy: 'fromEnvironment',
         showNotifications: 'off',
+        extraPaths: [],
     };
 }
 

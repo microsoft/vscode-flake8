@@ -25,6 +25,7 @@ export interface ISettings {
     interpreter: string[];
     importStrategy: string;
     showNotifications: string;
+    extraPaths: string[];
 }
 
 export function getExtensionSettings(namespace: string, includeInterpreter?: boolean): Promise<ISettings[]> {
@@ -41,6 +42,7 @@ function resolveVariables(
     const home = process.env.HOME || process.env.USERPROFILE;
     if (home) {
         substitutions.set('${userHome}', home);
+        substitutions.set('~', home);
     }
     if (workspace) {
         substitutions.set('${workspaceFolder}', workspace.uri.fsPath);
@@ -79,6 +81,21 @@ function resolveVariables(
 function getCwd(config: WorkspaceConfiguration, workspace: WorkspaceFolder): string {
     const cwd = config.get<string>('cwd', workspace.uri.fsPath);
     return resolveVariables([cwd], workspace)[0];
+}
+
+function getExtraPaths(namespace: string, workspace: WorkspaceFolder): string[] {
+    const config = getConfiguration(namespace, workspace);
+    const extraPaths = config.get<string[]>('extraPaths', []);
+    if (extraPaths.length > 0) {
+        return extraPaths;
+    }
+    // Fall back to python.analysis.extraPaths if the extension-specific setting is empty
+    const pythonConfig = getConfiguration('python', workspace.uri);
+    const legacyExtraPaths = pythonConfig.get<string[]>('analysis.extraPaths', []);
+    if (legacyExtraPaths.length > 0) {
+        traceLog('Using extraPaths from `python.analysis.extraPaths`.');
+    }
+    return legacyExtraPaths;
 }
 
 export async function getWorkspaceSettings(
@@ -121,6 +138,7 @@ export async function getWorkspaceSettings(
         interpreter: resolveVariables(interpreter, workspace),
         importStrategy: config.get<string>('importStrategy', 'useBundled'),
         showNotifications: config.get<string>('showNotifications', 'onError'),
+        extraPaths: resolveVariables(getExtraPaths(namespace, workspace), workspace),
     };
     return workspaceSetting;
 }
@@ -152,6 +170,7 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
         interpreter: interpreter ?? [],
         importStrategy: getGlobalValue<string>(config, 'importStrategy', 'fromEnvironment'),
         showNotifications: getGlobalValue<string>(config, 'showNotifications', 'onError'),
+        extraPaths: getGlobalValue<string[]>(config, 'extraPaths', []),
     };
     return setting;
 }
@@ -167,6 +186,7 @@ export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespa
         `${namespace}.importStrategy`,
         `${namespace}.showNotifications`,
         `${namespace}.ignorePatterns`,
+        `${namespace}.extraPaths`,
     ];
     const changed = settings.map((s) => e.affectsConfiguration(s));
     return changed.includes(true);

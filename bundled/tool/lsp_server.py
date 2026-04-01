@@ -511,13 +511,20 @@ def initialize(params: lsp.InitializeParams) -> None:
     """LSP handler for initialize request."""
     log_to_output(f"CWD Server: {os.getcwd()}")
 
-    paths = "\r\n   ".join(sys.path)
-    log_to_output(f"sys.path used to run Server:\r\n   {paths}")
-
     GLOBAL_SETTINGS.update(**params.initialization_options.get("globalSettings", {}))
 
     settings = params.initialization_options["settings"]
     _update_workspace_settings(settings)
+
+    # Add extra paths to sys.path for in-process module execution
+    import_strategy = os.getenv("LS_IMPORT_STRATEGY", "useBundled")
+    for setting in settings:
+        for extra in setting.get("extraPaths", []):
+            update_sys_path(extra, import_strategy)
+
+    paths = "\r\n   ".join(sys.path)
+    log_to_output(f"sys.path used to run Server:\r\n   {paths}")
+
     log_to_output(
         f"Settings used to run Server:\r\n{json.dumps(settings, indent=4, ensure_ascii=False)}\r\n"
     )
@@ -600,6 +607,7 @@ def _get_global_defaults():
         "ignorePatterns": GLOBAL_SETTINGS.get("ignorePatterns", []),
         "importStrategy": GLOBAL_SETTINGS.get("importStrategy", "useBundled"),
         "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "onError"),
+        "extraPaths": GLOBAL_SETTINGS.get("extraPaths", []),
     }
 
 

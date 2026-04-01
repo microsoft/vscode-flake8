@@ -122,6 +122,14 @@ async function createServer(
 
     newEnv.PYTHONUTF8 = '1';
 
+    // Set extra paths for PYTHONPATH
+    if (settings.extraPaths && settings.extraPaths.length > 0) {
+        const existing = newEnv.PYTHONPATH ? newEnv.PYTHONPATH.split(path.delimiter) : [];
+        const combined = [...existing, ...settings.extraPaths].filter((p) => p.length > 0);
+        newEnv.PYTHONPATH = combined.join(path.delimiter);
+        traceInfo(`PYTHONPATH: ${newEnv.PYTHONPATH}`);
+    }
+
     const args =
         newEnv.USE_DEBUGPY === 'False' || !isDebugScript
             ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])

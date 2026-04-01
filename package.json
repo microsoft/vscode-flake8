@@ -103,6 +103,21 @@
                     "scope": "resource",
                     "type": "boolean"
                 },
+                "flake8.extraPaths": {
+                    "default": [],
+                    "markdownDescription": "%settings.extraPaths.description%",
+                    "items": {
+                        "type": "string"
+                    },
+                    "scope": "resource",
+                    "type": "array",
+                    "examples": [
+                        [
+                            "${workspaceFolder}/src",
+                            "~/lib/python"
+                        ]
+                    ]
+                },
                 "flake8.ignorePatterns": {
                     "default": [],
                     "markdownDescription": "%settings.ignorePatterns.description%",
