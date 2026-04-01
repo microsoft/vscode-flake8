@@ -66,6 +66,7 @@ async function createServer(
             : settings.interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
     traceInfo(`Server run command: ${[command, ...args].join(' ')}`);
     traceInfo(`Server CWD: ${cwd}`);
+    traceVerbose(`Server environment: LS_IMPORT_STRATEGY=${newEnv.LS_IMPORT_STRATEGY}, LS_SHOW_NOTIFICATION=${newEnv.LS_SHOW_NOTIFICATION}, PYTHONUTF8=${newEnv.PYTHONUTF8}`);
 
     const serverOptions: ServerOptions = {
         command,
