@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import * as fsapi from 'fs-extra';
+import * as path from 'path';
 import { Disposable, env, l10n, LanguageStatusSeverity, LogOutputChannel, Uri } from 'vscode';
 import { State } from 'vscode-languageclient';
 import {
@@ -16,8 +17,75 @@ import { getDebuggerPath } from './python';
 import { getExtensionSettings, getGlobalSettings, ISettings } from './settings';
 import { getLSClientTraceLevel, getDocumentSelector } from './utilities';
 import { updateStatus } from './status';
+import { getConfiguration } from './vscodeapi';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
+
+/**
+ * Parses a .env file and returns a record of environment variables.
+ * Supports KEY=VALUE, KEY="VALUE", KEY='VALUE', comments (#), and empty lines.
+ *
+ * Limitations: no multi-line values, no variable interpolation, no escaped quotes.
+ */
+function parseEnvFile(content: string): Record<string, string> {
+    const env: Record<string, string> = {};
+    for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) {
+            continue;
+        }
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex < 0) {
+            continue;
+        }
+        const key = trimmed
+            .substring(0, eqIndex)
+            .trim()
+            .replace(/^export\s+/, '');
+        let value = trimmed.substring(eqIndex + 1).trim();
+        // Strip inline comments for unquoted values
+        if (!value.startsWith('"') && !value.startsWith("'")) {
+            const commentIndex = value.indexOf(' #');
+            if (commentIndex !== -1) {
+                value = value.substring(0, commentIndex).trimEnd();
+            }
+        }
+        // Strip surrounding quotes
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+        }
+        if (key) {
+            env[key] = value;
+        }
+    }
+    return env;
+}
+
+/**
+ * Reads environment variables from the configured python.envFile (defaults
+ * to `${workspaceFolder}/.env`). Returns an empty record when the file
+ * does not exist or cannot be read.
+ */
+async function loadEnvFile(workspacePath: string): Promise<Record<string, string>> {
+    try {
+        const pythonConfig = getConfiguration('python', Uri.file(workspacePath));
+        let envFilePath = pythonConfig.get<string>('envFile', '${workspaceFolder}/.env');
+        envFilePath = envFilePath.replace('${workspaceFolder}', workspacePath);
+
+        if (await fsapi.pathExists(envFilePath)) {
+            const content = await fsapi.readFile(envFilePath, 'utf-8');
+            const envVars = parseEnvFile(content);
+            const count = Object.keys(envVars).length;
+            if (count > 0) {
+                traceInfo(`Loaded ${count} environment variable(s) from ${envFilePath}`);
+            }
+            return envVars;
+        }
+    } catch (ex) {
+        traceError(`Failed to load envFile: ${ex}`);
+    }
+    return {};
+}
 
 /**
  * Resolves the CWD for spawning the server process.
@@ -29,7 +97,7 @@ export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
  */
 export function getServerCwd(settings: ISettings): string {
     const hasFileVariable = /\$\{(file|relativeFile)/.test(settings.cwd);
-    return hasFileVariable ? Uri.parse(settings.workspace).fsPath : settings.cwd;
+    return hasFileVariable ? Uri.file(settings.workspace).fsPath : settings.cwd;
 }
 
 async function createServer(
@@ -44,6 +112,18 @@ async function createServer(
 
     // Set debugger path needed for debugging Python code.
     const newEnv = { ...process.env };
+
+    // Load environment variables from python.envFile (.env)
+    const workspacePath = Uri.file(settings.workspace).fsPath;
+    const envFileVars = await loadEnvFile(workspacePath);
+    for (const [key, val] of Object.entries(envFileVars)) {
+        if ((key === 'PYTHONPATH' || key === 'PATH') && newEnv[key]) {
+            newEnv[key] = newEnv[key] + path.delimiter + val;
+        } else {
+            newEnv[key] = val;
+        }
+    }
+
     const debuggerPath = await getDebuggerPath();
     const isDebugScript = await fsapi.pathExists(DEBUG_SERVER_SCRIPT_PATH);
     if (newEnv.USE_DEBUGPY && debuggerPath) {
@@ -60,12 +140,23 @@ async function createServer(
 
     newEnv.PYTHONUTF8 = '1';
 
+    // Set extra paths for PYTHONPATH
+    if (settings.extraPaths && settings.extraPaths.length > 0) {
+        const existing = newEnv.PYTHONPATH ? newEnv.PYTHONPATH.split(path.delimiter) : [];
+        const combined = [...existing, ...settings.extraPaths].filter((dir) => dir.length > 0);
+        newEnv.PYTHONPATH = combined.join(path.delimiter);
+        traceInfo(`PYTHONPATH: ${newEnv.PYTHONPATH}`);
+    }
+
     const args =
         newEnv.USE_DEBUGPY === 'False' || !isDebugScript
             ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])
             : settings.interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
     traceInfo(`Server run command: ${[command, ...args].join(' ')}`);
     traceInfo(`Server CWD: ${cwd}`);
+    traceVerbose(
+        `Server environment: LS_IMPORT_STRATEGY=${newEnv.LS_IMPORT_STRATEGY}, LS_SHOW_NOTIFICATION=${newEnv.LS_SHOW_NOTIFICATION}, PYTHONUTF8=${newEnv.PYTHONUTF8}`,
+    );
 
     const serverOptions: ServerOptions = {
         command,
@@ -102,7 +193,13 @@ export async function restartServer(
             traceError(`Server: Stop failed: ${ex}`);
         }
     }
-    _disposables.forEach((d) => d.dispose());
+    _disposables.forEach((d) => {
+        try {
+            d.dispose();
+        } catch (ex) {
+            traceError(`Failed to dispose: ${ex}`);
+        }
+    });
     _disposables = [];
     updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
