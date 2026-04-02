@@ -17,7 +17,7 @@ function makeSettings(cwd: string, workspace: string): ISettings {
         ignorePatterns: [],
         interpreter: [],
         importStrategy: 'fromEnvironment',
-        showNotifications: 'off',
+        showNotifications: 'onError',
         extraPaths: [],
     };
 }

@@ -172,6 +172,7 @@ def did_close(params: lsp.DidCloseTextDocumentParams) -> None:
     LSP_SERVER.text_document_publish_diagnostics(
         lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=[])
     )
+    _lint_versions.pop(document.uri, None)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_OPEN)

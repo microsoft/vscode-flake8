@@ -42,7 +42,6 @@ function resolveVariables(
     const home = process.env.HOME || process.env.USERPROFILE;
     if (home) {
         substitutions.set('${userHome}', home);
-        substitutions.set('~', home);
     }
     if (workspace) {
         substitutions.set('${workspaceFolder}', workspace.uri.fsPath);
@@ -140,7 +139,21 @@ export async function getWorkspaceSettings(
         showNotifications: config.get<string>('showNotifications', 'onError'),
         extraPaths: resolveVariables(getExtraPaths(namespace, workspace), workspace),
     };
+    // Apply tilde expansion only to path-typed settings
+    workspaceSetting.path = workspaceSetting.path.map(expandTilde);
+    workspaceSetting.extraPaths = workspaceSetting.extraPaths.map(expandTilde);
+    if (workspaceSetting.cwd.startsWith('~')) {
+        workspaceSetting.cwd = expandTilde(workspaceSetting.cwd);
+    }
+
     return workspaceSetting;
+}
+
+function expandTilde(value: string): string {
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    if (value === '~') return home;
+    if (value.startsWith('~/') || value.startsWith('~\\')) return home + value.slice(1);
+    return value;
 }
 
 function getGlobalValue<T>(config: WorkspaceConfiguration, key: string, defaultValue: T): T {

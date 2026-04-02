@@ -24,6 +24,8 @@ export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 /**
  * Parses a .env file and returns a record of environment variables.
  * Supports KEY=VALUE, KEY="VALUE", KEY='VALUE', comments (#), and empty lines.
+ *
+ * Limitations: no multi-line values, no variable interpolation, no escaped quotes.
  */
 function parseEnvFile(content: string): Record<string, string> {
     const env: Record<string, string> = {};
@@ -41,6 +43,13 @@ function parseEnvFile(content: string): Record<string, string> {
             .trim()
             .replace(/^export\s+/, '');
         let value = trimmed.substring(eqIndex + 1).trim();
+        // Strip inline comments for unquoted values
+        if (!value.startsWith('"') && !value.startsWith("'")) {
+            const commentIndex = value.indexOf(' #');
+            if (commentIndex !== -1) {
+                value = value.substring(0, commentIndex).trimEnd();
+            }
+        }
         // Strip surrounding quotes
         if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
             value = value.slice(1, -1);
@@ -59,7 +68,7 @@ function parseEnvFile(content: string): Record<string, string> {
  */
 async function loadEnvFile(workspacePath: string): Promise<Record<string, string>> {
     try {
-        const pythonConfig = getConfiguration('python');
+        const pythonConfig = getConfiguration('python', Uri.file(workspacePath));
         let envFilePath = pythonConfig.get<string>('envFile', '${workspaceFolder}/.env');
         envFilePath = envFilePath.replace('${workspaceFolder}', workspacePath);
 
@@ -107,7 +116,13 @@ async function createServer(
     // Load environment variables from python.envFile (.env)
     const workspacePath = Uri.file(settings.workspace).fsPath;
     const envFileVars = await loadEnvFile(workspacePath);
-    Object.assign(newEnv, envFileVars);
+    for (const [key, val] of Object.entries(envFileVars)) {
+        if ((key === 'PYTHONPATH' || key === 'PATH') && newEnv[key]) {
+            newEnv[key] = newEnv[key] + path.delimiter + val;
+        } else {
+            newEnv[key] = val;
+        }
+    }
 
     const debuggerPath = await getDebuggerPath();
     const isDebugScript = await fsapi.pathExists(DEBUG_SERVER_SCRIPT_PATH);
@@ -128,7 +143,7 @@ async function createServer(
     // Set extra paths for PYTHONPATH
     if (settings.extraPaths && settings.extraPaths.length > 0) {
         const existing = newEnv.PYTHONPATH ? newEnv.PYTHONPATH.split(path.delimiter) : [];
-        const combined = [...existing, ...settings.extraPaths].filter((p) => p.length > 0);
+        const combined = [...existing, ...settings.extraPaths].filter((dir) => dir.length > 0);
         newEnv.PYTHONPATH = combined.join(path.delimiter);
         traceInfo(`PYTHONPATH: ${newEnv.PYTHONPATH}`);
     }
