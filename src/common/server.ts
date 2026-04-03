@@ -97,7 +97,7 @@ async function loadEnvFile(workspacePath: string): Promise<Record<string, string
  */
 export function getServerCwd(settings: ISettings): string {
     const hasFileVariable = /\$\{(file|relativeFile)/.test(settings.cwd);
-    return hasFileVariable ? Uri.file(settings.workspace).fsPath : settings.cwd;
+    return hasFileVariable ? Uri.parse(settings.workspace).fsPath : settings.cwd;
 }
 
 async function createServer(
@@ -114,7 +114,7 @@ async function createServer(
     const newEnv = { ...process.env };
 
     // Load environment variables from python.envFile (.env)
-    const workspacePath = Uri.file(settings.workspace).fsPath;
+    const workspacePath = Uri.parse(settings.workspace).fsPath;
     const envFileVars = await loadEnvFile(workspacePath);
     for (const [key, val] of Object.entries(envFileVars)) {
         if ((key === 'PYTHONPATH' || key === 'PATH') && newEnv[key]) {
