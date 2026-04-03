@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+import * as dotenv from 'dotenv';
 import * as fsapi from 'fs-extra';
 import * as path from 'path';
 import { Disposable, env, l10n, LanguageStatusSeverity, LogOutputChannel, Uri } from 'vscode';
@@ -21,51 +22,6 @@ import { getConfiguration } from './vscodeapi';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 
-/**
- * Parses a .env file and returns a record of environment variables.
- * Supports KEY=VALUE, KEY="VALUE", KEY='VALUE', comments (#), and empty lines.
- *
- * Limitations: no multi-line values, no variable interpolation, no escaped quotes.
- */
-function parseEnvFile(content: string): Record<string, string> {
-    const env: Record<string, string> = {};
-    for (const line of content.split(/\r?\n/)) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) {
-            continue;
-        }
-        const eqIndex = trimmed.indexOf('=');
-        if (eqIndex < 0) {
-            continue;
-        }
-        const key = trimmed
-            .substring(0, eqIndex)
-            .trim()
-            .replace(/^export\s+/, '');
-        let value = trimmed.substring(eqIndex + 1).trim();
-        // Strip inline comments for unquoted values
-        if (!value.startsWith('"') && !value.startsWith("'")) {
-            const commentIndex = value.indexOf(' #');
-            if (commentIndex !== -1) {
-                value = value.substring(0, commentIndex).trimEnd();
-            }
-        }
-        // Strip surrounding quotes
-        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-        }
-        if (key) {
-            env[key] = value;
-        }
-    }
-    return env;
-}
-
-/**
- * Reads environment variables from the configured python.envFile (defaults
- * to `${workspaceFolder}/.env`). Returns an empty record when the file
- * does not exist or cannot be read.
- */
 async function loadEnvFile(workspacePath: string): Promise<Record<string, string>> {
     try {
         const pythonConfig = getConfiguration('python', Uri.file(workspacePath));
@@ -74,7 +30,7 @@ async function loadEnvFile(workspacePath: string): Promise<Record<string, string
 
         if (await fsapi.pathExists(envFilePath)) {
             const content = await fsapi.readFile(envFilePath, 'utf-8');
-            const envVars = parseEnvFile(content);
+            const envVars = dotenv.parse(content);
             const count = Object.keys(envVars).length;
             if (count > 0) {
                 traceInfo(`Loaded ${count} environment variable(s) from ${envFilePath}`);
@@ -97,7 +53,7 @@ async function loadEnvFile(workspacePath: string): Promise<Record<string, string
  */
 export function getServerCwd(settings: ISettings): string {
     const hasFileVariable = /\$\{(file|relativeFile)/.test(settings.cwd);
-    return hasFileVariable ? Uri.file(settings.workspace).fsPath : settings.cwd;
+    return hasFileVariable ? Uri.parse(settings.workspace).fsPath : settings.cwd;
 }
 
 async function createServer(
@@ -114,7 +70,7 @@ async function createServer(
     const newEnv = { ...process.env };
 
     // Load environment variables from python.envFile (.env)
-    const workspacePath = Uri.file(settings.workspace).fsPath;
+    const workspacePath = Uri.parse(settings.workspace).fsPath;
     const envFileVars = await loadEnvFile(workspacePath);
     for (const [key, val] of Object.entries(envFileVars)) {
         if ((key === 'PYTHONPATH' || key === 'PATH') && newEnv[key]) {
