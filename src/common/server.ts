@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import * as fsapi from 'fs-extra';
+import * as path from 'path';
 import { Disposable, env, l10n, LanguageStatusSeverity, LogOutputChannel, Uri } from 'vscode';
 import { State } from 'vscode-languageclient';
 import {
@@ -11,11 +12,13 @@ import {
     ServerOptions,
 } from 'vscode-languageclient/node';
 import { DEBUG_SERVER_SCRIPT_PATH, SERVER_SCRIPT_PATH } from './constants';
+import { getEnvFileVars } from './envFile';
 import { traceError, traceInfo, traceVerbose } from './logging';
 import { getDebuggerPath } from './python';
 import { getExtensionSettings, getGlobalSettings, ISettings } from './settings';
 import { getLSClientTraceLevel, getDocumentSelector } from './utilities';
 import { updateStatus } from './status';
+import { getWorkspaceFolder } from './vscodeapi';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 
@@ -44,6 +47,19 @@ async function createServer(
 
     // Set debugger path needed for debugging Python code.
     const newEnv = { ...process.env };
+
+    // Load environment variables from python.envFile (.env)
+    const workspaceUri = Uri.parse(settings.workspace);
+    const workspaceFolder = getWorkspaceFolder(workspaceUri);
+    const envFileVars = workspaceFolder ? await getEnvFileVars(workspaceFolder) : {};
+    for (const [key, val] of Object.entries(envFileVars)) {
+        if ((key === 'PYTHONPATH' || key === 'PATH') && newEnv[key]) {
+            newEnv[key] = newEnv[key] + path.delimiter + val;
+        } else {
+            newEnv[key] = val;
+        }
+    }
+
     const debuggerPath = await getDebuggerPath();
     const isDebugScript = await fsapi.pathExists(DEBUG_SERVER_SCRIPT_PATH);
     if (newEnv.USE_DEBUGPY && debuggerPath) {
@@ -60,12 +76,23 @@ async function createServer(
 
     newEnv.PYTHONUTF8 = '1';
 
+    // Set extra paths for PYTHONPATH
+    if (settings.extraPaths && settings.extraPaths.length > 0) {
+        const existing = newEnv.PYTHONPATH ? newEnv.PYTHONPATH.split(path.delimiter) : [];
+        const combined = [...existing, ...settings.extraPaths].filter((dir) => dir.length > 0);
+        newEnv.PYTHONPATH = combined.join(path.delimiter);
+        traceInfo(`PYTHONPATH: ${newEnv.PYTHONPATH}`);
+    }
+
     const args =
         newEnv.USE_DEBUGPY === 'False' || !isDebugScript
             ? settings.interpreter.slice(1).concat([SERVER_SCRIPT_PATH])
             : settings.interpreter.slice(1).concat([DEBUG_SERVER_SCRIPT_PATH]);
     traceInfo(`Server run command: ${[command, ...args].join(' ')}`);
     traceInfo(`Server CWD: ${cwd}`);
+    traceVerbose(
+        `Server environment: LS_IMPORT_STRATEGY=${newEnv.LS_IMPORT_STRATEGY}, LS_SHOW_NOTIFICATION=${newEnv.LS_SHOW_NOTIFICATION}, PYTHONUTF8=${newEnv.PYTHONUTF8}`,
+    );
 
     const serverOptions: ServerOptions = {
         command,
@@ -102,7 +129,13 @@ export async function restartServer(
             traceError(`Server: Stop failed: ${ex}`);
         }
     }
-    _disposables.forEach((d) => d.dispose());
+    _disposables.forEach((d) => {
+        try {
+            d.dispose();
+        } catch (ex) {
+            traceError(`Failed to dispose: ${ex}`);
+        }
+    });
     _disposables = [];
     updateStatus(undefined, LanguageStatusSeverity.Information, true);
 

@@ -11,9 +11,14 @@ import pathlib
 import re
 import sys
 import sysconfig
+import threading
 import traceback
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 from urllib.parse import urlparse, urlunparse
+
+# Track lint request versions per URI to discard stale results from superseded runs.
+_lint_versions: Dict[str, int] = {}
+_lint_versions_lock = threading.Lock()
 
 
 # **********************************************************
@@ -167,6 +172,7 @@ def did_close(params: lsp.DidCloseTextDocumentParams) -> None:
     LSP_SERVER.text_document_publish_diagnostics(
         lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=[])
     )
+    _lint_versions.pop(document.uri, None)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_OPEN)
@@ -263,23 +269,39 @@ def _linting_helper(
             log_always(f"Skipping linting for {document.uri} skipped: not supported")
             return []
 
+        # Bump the version for this URI so any concurrent or queued lint for
+        # the same document can detect that it has been superseded.
+        with _lint_versions_lock:
+            lint_version = _lint_versions.get(document.uri, 0) + 1
+            _lint_versions[document.uri] = lint_version
+
         # If notebook set use_stdin=True to pass the document *content* to the tool, not its path.
         result = _run_tool_on_document(document, use_stdin=is_notebook)
-        if result and result.stdout:
-            log_to_output(f"{document.uri} :\r\n{result.stdout}")
 
-            # deep copy here to prevent accidentally updating global settings.
-            settings = copy.deepcopy(_get_settings_by_document(document))
-            return _parse_output_using_regex(
-                result.stdout, severity=settings["severity"]
-            )
+        # If a newer lint request arrived while we were running, discard
+        # these stale results — the newer request will publish its own.
+        with _lint_versions_lock:
+            if _lint_versions.get(document.uri, 0) != lint_version:
+                log_to_output(
+                    f"Discarding stale lint results for {document.uri} "
+                    f"(version {lint_version} superseded by "
+                    f"{_lint_versions[document.uri]})"
+                )
+                return []
+
+        if result:
+            if result.stderr:
+                log_warning(f"Flake8 stderr for {document.uri}:\r\n{result.stderr}")
+            if result.stdout:
+                log_to_output(f"{document.uri} :\r\n{result.stdout}")
+
+                # deep copy here to prevent accidentally updating global settings.
+                settings = copy.deepcopy(_get_settings_by_document(document))
+                return _parse_output_using_regex(
+                    result.stdout, severity=settings["severity"]
+                )
     except Exception:
-        LSP_SERVER.window_log_message(
-            lsp.LogMessageParams(
-                message=f"Linting failed with error:\r\n{traceback.format_exc()}",
-                type=lsp.MessageType.Error,
-            )
-        )
+        log_error(f"Linting failed with error:\r\n{traceback.format_exc()}")
     return []
 
 
@@ -509,13 +531,20 @@ def initialize(params: lsp.InitializeParams) -> None:
     """LSP handler for initialize request."""
     log_to_output(f"CWD Server: {os.getcwd()}")
 
-    paths = "\r\n   ".join(sys.path)
-    log_to_output(f"sys.path used to run Server:\r\n   {paths}")
-
     GLOBAL_SETTINGS.update(**params.initialization_options.get("globalSettings", {}))
 
     settings = params.initialization_options["settings"]
     _update_workspace_settings(settings)
+
+    # Add extra paths to sys.path for in-process module execution
+    import_strategy = os.getenv("LS_IMPORT_STRATEGY", "useBundled")
+    for setting in settings:
+        for extra in setting.get("extraPaths", []):
+            update_sys_path(extra, import_strategy)
+
+    paths = "\r\n   ".join(sys.path)
+    log_to_output(f"sys.path used to run Server:\r\n   {paths}")
+
     log_to_output(
         f"Settings used to run Server:\r\n{json.dumps(settings, indent=4, ensure_ascii=False)}\r\n"
     )
@@ -597,7 +626,8 @@ def _get_global_defaults():
         ),
         "ignorePatterns": GLOBAL_SETTINGS.get("ignorePatterns", []),
         "importStrategy": GLOBAL_SETTINGS.get("importStrategy", "useBundled"),
-        "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "off"),
+        "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "onError"),
+        "extraPaths": GLOBAL_SETTINGS.get("extraPaths", []),
     }
 
 
