@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import * as dotenv from 'dotenv';
 import * as fsapi from 'fs-extra';
 import * as path from 'path';
 import { Disposable, env, l10n, LanguageStatusSeverity, LogOutputChannel, Uri } from 'vscode';
@@ -13,35 +12,15 @@ import {
     ServerOptions,
 } from 'vscode-languageclient/node';
 import { DEBUG_SERVER_SCRIPT_PATH, SERVER_SCRIPT_PATH } from './constants';
+import { getEnvFileVars } from './envFile';
 import { traceError, traceInfo, traceVerbose } from './logging';
 import { getDebuggerPath } from './python';
 import { getExtensionSettings, getGlobalSettings, ISettings } from './settings';
 import { getLSClientTraceLevel, getDocumentSelector } from './utilities';
 import { updateStatus } from './status';
-import { getConfiguration } from './vscodeapi';
+import { getWorkspaceFolder } from './vscodeapi';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
-
-async function loadEnvFile(workspacePath: string): Promise<Record<string, string>> {
-    try {
-        const pythonConfig = getConfiguration('python', Uri.file(workspacePath));
-        let envFilePath = pythonConfig.get<string>('envFile', '${workspaceFolder}/.env');
-        envFilePath = envFilePath.replace('${workspaceFolder}', workspacePath);
-
-        if (await fsapi.pathExists(envFilePath)) {
-            const content = await fsapi.readFile(envFilePath, 'utf-8');
-            const envVars = dotenv.parse(content);
-            const count = Object.keys(envVars).length;
-            if (count > 0) {
-                traceInfo(`Loaded ${count} environment variable(s) from ${envFilePath}`);
-            }
-            return envVars;
-        }
-    } catch (ex) {
-        traceError(`Failed to load envFile: ${ex}`);
-    }
-    return {};
-}
 
 /**
  * Resolves the CWD for spawning the server process.
@@ -70,8 +49,9 @@ async function createServer(
     const newEnv = { ...process.env };
 
     // Load environment variables from python.envFile (.env)
-    const workspacePath = Uri.parse(settings.workspace).fsPath;
-    const envFileVars = await loadEnvFile(workspacePath);
+    const workspaceUri = Uri.parse(settings.workspace);
+    const workspaceFolder = getWorkspaceFolder(workspaceUri);
+    const envFileVars = workspaceFolder ? await getEnvFileVars(workspaceFolder) : {};
     for (const [key, val] of Object.entries(envFileVars)) {
         if ((key === 'PYTHONPATH' || key === 'PATH') && newEnv[key]) {
             newEnv[key] = newEnv[key] + path.delimiter + val;
