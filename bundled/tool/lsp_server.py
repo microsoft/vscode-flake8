@@ -697,6 +697,23 @@ def _get_settings_by_document(document: TextDocument | None):
     }
 
 
+def _get_settings_by_path(file_path: pathlib.Path):
+    # Note: WORKSPACE_SETTINGS is keyed by normalized workspaceFS path
+    # (see _update_workspace_settings), so dict lookup by workspaceFS value is correct.
+    workspaces = {s["workspaceFS"] for s in WORKSPACE_SETTINGS.values()}
+
+    while file_path != file_path.parent:
+        str_file_path = utils.normalize_path(file_path)
+        if str_file_path in workspaces:
+            return WORKSPACE_SETTINGS[str_file_path]
+        file_path = file_path.parent
+
+    setting_values = list(WORKSPACE_SETTINGS.values())
+    if not setting_values:
+        return {}
+    return setting_values[0]
+
+
 # *****************************************************
 # Internal execution APIs.
 # *****************************************************

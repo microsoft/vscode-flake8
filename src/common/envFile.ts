@@ -9,7 +9,8 @@ import { traceInfo, traceWarn } from './logging';
 import { getConfiguration } from './vscodeapi';
 
 export function expandTilde(value: string): string {
-    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const home = process.env.HOME || process.env.USERPROFILE;
+    if (!home) return value;
     if (value === '~') {
         return home;
     }

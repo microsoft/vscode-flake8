@@ -15,7 +15,7 @@ def update_sys_path(path_to_add: str) -> None:
 
 
 # Ensure debugger is loaded before we load anything else, to debug initialization.
-if os.getenv("USE_DEBUGPY", None) in ["True", "TRUE", "1", "T"]:
+if os.getenv("USE_DEBUGPY", "").strip().lower() in ["true", "1", "t", "yes"]:
     debugger_path = os.getenv("DEBUGPY_PATH", None)
     if debugger_path:
         if debugger_path.endswith("debugpy"):
