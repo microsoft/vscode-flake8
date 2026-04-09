@@ -9,6 +9,9 @@ import { FLAKE8_CONFIG_FILES } from '../../../../common/constants';
 
 interface MockFileSystemWatcher {
     watcher: FileSystemWatcher;
+    changeDisposable: { dispose: sinon.SinonStub };
+    createDisposable: { dispose: sinon.SinonStub };
+    deleteDisposable: { dispose: sinon.SinonStub };
     fireDidCreate(): Promise<void>;
     fireDidChange(): Promise<void>;
     fireDidDelete(): Promise<void>;
@@ -19,26 +22,33 @@ function createMockFileSystemWatcher(): MockFileSystemWatcher {
     let onDidCreateHandler: ((e: Uri) => Promise<void>) | undefined;
     let onDidDeleteHandler: ((e: Uri) => Promise<void>) | undefined;
 
+    const changeDisposable = { dispose: sinon.stub() };
+    const createDisposable = { dispose: sinon.stub() };
+    const deleteDisposable = { dispose: sinon.stub() };
+
     const watcher = {
-        onDidChange: (handler: (e: Uri) => Promise<void>): Disposable => {
+        onDidChange: sinon.stub().callsFake((handler: (e: Uri) => Promise<void>): Disposable => {
             onDidChangeHandler = handler;
-            return { dispose: () => {} };
-        },
-        onDidCreate: (handler: (e: Uri) => Promise<void>): Disposable => {
+            return changeDisposable;
+        }),
+        onDidCreate: sinon.stub().callsFake((handler: (e: Uri) => Promise<void>): Disposable => {
             onDidCreateHandler = handler;
-            return { dispose: () => {} };
-        },
-        onDidDelete: (handler: (e: Uri) => Promise<void>): Disposable => {
+            return createDisposable;
+        }),
+        onDidDelete: sinon.stub().callsFake((handler: (e: Uri) => Promise<void>): Disposable => {
             onDidDeleteHandler = handler;
-            return { dispose: () => {} };
-        },
-        dispose: () => {},
+            return deleteDisposable;
+        }),
+        dispose: sinon.stub(),
     } as unknown as FileSystemWatcher;
 
     const fakeUri = Uri.file('/fake/config/file');
 
     return {
         watcher,
+        changeDisposable,
+        createDisposable,
+        deleteDisposable,
         fireDidCreate: async () => {
             if (onDidCreateHandler) {
                 await onDidCreateHandler(fakeUri);
@@ -61,9 +71,11 @@ suite('Config File Watcher Tests', () => {
     let sandbox: sinon.SinonSandbox;
     let createFileSystemWatcherStub: sinon.SinonStub;
     let mockWatchers: MockFileSystemWatcher[];
+    let onConfigChangedCallback: sinon.SinonStub;
 
     setup(() => {
         sandbox = sinon.createSandbox();
+        onConfigChangedCallback = sandbox.stub().resolves();
         mockWatchers = FLAKE8_CONFIG_FILES.map(() => createMockFileSystemWatcher());
 
         let watcherIndex = 0;
@@ -140,5 +152,30 @@ suite('Config File Watcher Tests', () => {
         for (const d of disposables) {
             assert.isFunction(d.dispose);
         }
+    });
+
+    test('Should dispose all subscriptions and watcher on dispose', () => {
+        const watchers = createConfigFileWatchers(onConfigChangedCallback);
+
+        watchers[0].dispose();
+
+        const { changeDisposable, createDisposable, deleteDisposable, watcher: mockWatcher } = mockWatchers[0];
+        assert.strictEqual(changeDisposable.dispose.callCount, 1, 'Change subscription should be disposed');
+        assert.strictEqual(createDisposable.dispose.callCount, 1, 'Create subscription should be disposed');
+        assert.strictEqual(deleteDisposable.dispose.callCount, 1, 'Delete subscription should be disposed');
+        assert.strictEqual((mockWatcher.dispose as sinon.SinonStub).callCount, 1, 'Watcher should be disposed');
+    });
+
+    test('Should not call callback after dispose', () => {
+        const watchers = createConfigFileWatchers(onConfigChangedCallback);
+
+        // Dispose the watcher
+        watchers[0].dispose();
+
+        // Get the handlers and call them after disposal
+        const changeHandler = (mockWatchers[0].watcher.onDidChange as sinon.SinonStub).getCall(0).args[0];
+        changeHandler();
+
+        assert.strictEqual(onConfigChangedCallback.callCount, 0, 'Callback should not be called after dispose');
     });
 });
