@@ -6,6 +6,7 @@ import { traceLog, traceWarn } from './logging';
 import { getInterpreterDetails } from './python';
 import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
 import { getInterpreterFromSetting } from './utilities';
+import { expandTilde } from './envFile';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 const DEFAULT_SEVERITY: Record<string, string> = {
@@ -147,13 +148,6 @@ export async function getWorkspaceSettings(
     }
 
     return workspaceSetting;
-}
-
-function expandTilde(value: string): string {
-    const home = process.env.HOME || process.env.USERPROFILE || '';
-    if (value === '~') return home;
-    if (value.startsWith('~/') || value.startsWith('~\\')) return home + value.slice(1);
-    return value;
 }
 
 function getGlobalValue<T>(config: WorkspaceConfiguration, key: string, defaultValue: T): T {

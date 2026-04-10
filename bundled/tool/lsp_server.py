@@ -697,6 +697,20 @@ def _get_settings_by_document(document: TextDocument | None):
     }
 
 
+def _get_settings_by_path(file_path: pathlib.Path):
+    while file_path != file_path.parent:
+        str_file_path = utils.normalize_path(file_path)
+        for _key, settings in WORKSPACE_SETTINGS.items():
+            if settings["workspaceFS"] == str_file_path:
+                return settings
+        file_path = file_path.parent
+
+    setting_values = list(WORKSPACE_SETTINGS.values())
+    if not setting_values:
+        return {}
+    return setting_values[0]
+
+
 # *****************************************************
 # Internal execution APIs.
 # *****************************************************
