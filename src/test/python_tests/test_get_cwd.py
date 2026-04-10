@@ -1,148 +1,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-"""Unit tests for the get_cwd() helper in lsp_server."""
+"""Unit tests for the get_cwd() helper in lsp_server.
+
+Mock setup for pygls / lsprotocol is provided by conftest.py (which also
+adds ``bundled/tool`` to ``sys.path``).  No per-file mock duplication needed.
+"""
 
 import os
-import pathlib
-import sys
 import types
 
-
-# ---------------------------------------------------------------------------
-# Stub out bundled LSP dependencies so lsp_server can be imported without the
-# full VS Code extension environment.
-# ---------------------------------------------------------------------------
-def _setup_mocks():
-    class _MockLS:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def feature(self, *args, **kwargs):
-            return lambda f: f
-
-        def command(self, *args, **kwargs):
-            return lambda f: f
-
-        def show_message_log(self, *args, **kwargs):
-            pass
-
-        def show_message(self, *args, **kwargs):
-            pass
-
-        def window_log_message(self, *args, **kwargs):
-            pass
-
-        def window_show_message(self, *args, **kwargs):
-            pass
-
-    # vscode-flake8 imports LanguageServer from pygls.lsp.server
-    mock_lsp_server_mod = types.ModuleType("pygls.lsp.server")
-    mock_lsp_server_mod.LanguageServer = _MockLS
-
-    _Doc = type("Document", (), {"path": None})
-    mock_workspace = types.ModuleType("pygls.workspace")
-    mock_workspace.Document = _Doc
-    # vscode-flake8 uses `from pygls.workspace import TextDocument`
-    mock_workspace.TextDocument = _Doc
-
-    mock_uris = types.ModuleType("pygls.uris")
-    mock_uris.from_fs_path = lambda p: "file://" + p
-
-    mock_lsp = types.ModuleType("lsprotocol.types")
-    for _name in [
-        "TEXT_DOCUMENT_DID_OPEN",
-        "TEXT_DOCUMENT_DID_SAVE",
-        "TEXT_DOCUMENT_DID_CLOSE",
-        "TEXT_DOCUMENT_CODE_ACTION",
-        "INITIALIZE",
-        "EXIT",
-        "SHUTDOWN",
-        "NOTEBOOK_DOCUMENT_DID_OPEN",
-        "NOTEBOOK_DOCUMENT_DID_CHANGE",
-        "NOTEBOOK_DOCUMENT_DID_SAVE",
-        "NOTEBOOK_DOCUMENT_DID_CLOSE",
-    ]:
-        setattr(mock_lsp, _name, _name)
-
-    # CodeActionKind needs a QuickFix attribute
-    mock_lsp.CodeActionKind = types.SimpleNamespace(QuickFix="quickfix")
-
-    # These classes are instantiated/called at module level or in decorators
-    class _FlexClass:
-        def __init__(self, *args, **kwargs):
-            pass
-
-    for _name in [
-        "Diagnostic",
-        "DiagnosticSeverity",
-        "DidCloseTextDocumentParams",
-        "DidOpenTextDocumentParams",
-        "DidSaveTextDocumentParams",
-        "DidChangeNotebookDocumentParams",
-        "DidCloseNotebookDocumentParams",
-        "DidOpenNotebookDocumentParams",
-        "DidSaveNotebookDocumentParams",
-        "InitializeParams",
-        "NotebookCellKind",
-        "NotebookCellLanguage",
-        "NotebookDocumentFilterWithNotebook",
-        "NotebookDocumentSyncOptions",
-        "Position",
-        "Range",
-        "TextEdit",
-        "CodeAction",
-        "CodeActionOptions",
-        "Command",
-        "WorkspaceEdit",
-        "TextDocumentEdit",
-        "OptionalVersionedTextDocumentIdentifier",
-        "LogMessageParams",
-        "ShowMessageParams",
-        "PublishDiagnosticsParams",
-    ]:
-        setattr(mock_lsp, _name, _FlexClass)
-    mock_lsp.MessageType = types.SimpleNamespace(Log=4, Error=1, Warning=2, Info=3)
-
-    # lsp_utils mock
-    mock_lsp_utils = types.ModuleType("lsp_utils")
-    mock_lsp_utils.normalize_path = lambda p, **kw: str(p)
-    mock_lsp_utils.is_stdlib_file = lambda p: False
-    mock_lsp_utils.is_match = lambda patterns, path: False
-    mock_lsp_utils.is_current_interpreter = lambda i: True
-    mock_lsp_utils.RunResult = type("RunResult", (), {})
-    mock_lsp_utils.substitute_attr = None
-
-    class _QuickFixError(Exception):
-        pass
-
-    mock_lsp_utils.QuickFixRegistrationError = _QuickFixError
-
-    # lsp_jsonrpc mock
-    mock_jsonrpc = types.ModuleType("lsp_jsonrpc")
-    mock_jsonrpc.shutdown_json_rpc = lambda: None
-
-    for _mod_name, _mod in [
-        ("pygls", types.ModuleType("pygls")),
-        ("pygls.lsp", types.ModuleType("pygls.lsp")),
-        ("pygls.lsp.server", mock_lsp_server_mod),
-        ("pygls.workspace", mock_workspace),
-        ("pygls.uris", mock_uris),
-        ("lsprotocol", types.ModuleType("lsprotocol")),
-        ("lsprotocol.types", mock_lsp),
-        ("lsp_jsonrpc", mock_jsonrpc),
-        ("lsp_utils", mock_lsp_utils),
-    ]:
-        if _mod_name not in sys.modules:
-            sys.modules[_mod_name] = _mod
-
-    tool_dir = str(pathlib.Path(__file__).parents[3] / "bundled" / "tool")
-    if tool_dir not in sys.path:
-        sys.path.insert(0, tool_dir)
-
-
-_setup_mocks()
-
-import lsp_server  # noqa: E402
+import lsp_server
 
 WORKSPACE = "/home/user/myproject"
 
