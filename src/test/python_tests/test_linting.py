@@ -18,8 +18,11 @@ LINTER = utils.get_server_info_defaults()
 TIMEOUT = 10  # 10 seconds
 
 
-def test_publish_diagnostics_on_open():
-    """Test to ensure linting on file open."""
+@pytest.mark.parametrize(
+    "notify_method", ["notify_did_open", "notify_did_save"], ids=["open", "save"]
+)
+def test_publish_diagnostics_on_open_or_save(notify_method):
+    """Test to ensure linting on file open and save."""
     contents = TEST_FILE_PATH.read_text()
 
     actual = []
@@ -35,67 +38,7 @@ def test_publish_diagnostics_on_open():
 
         ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
 
-        ls_session.notify_did_open(
-            {
-                "textDocument": {
-                    "uri": TEST_FILE_URI,
-                    "languageId": "python",
-                    "version": 1,
-                    "text": contents,
-                }
-            }
-        )
-
-        # wait for some time to receive all notifications
-        done.wait(TIMEOUT)
-
-    expected = {
-        "uri": TEST_FILE_URI,
-        "diagnostics": [
-            {
-                "range": {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 0, "character": 0},
-                },
-                "message": "'sys' imported but unused",
-                "severity": 1,
-                "code": "F401",
-                "source": LINTER["name"],
-            },
-            {
-                "range": {
-                    "start": {"line": 2, "character": 6},
-                    "end": {"line": 2, "character": 6},
-                },
-                "message": "undefined name 'x'",
-                "severity": 1,
-                "code": "F821",
-                "source": LINTER["name"],
-            },
-        ],
-    }
-
-    assert_that(actual, is_(expected))
-
-
-def test_publish_diagnostics_on_save():
-    """Test to ensure linting on file save."""
-    contents = TEST_FILE_PATH.read_text()
-
-    actual = []
-    with session.LspSession() as ls_session:
-        ls_session.initialize()
-
-        done = Event()
-
-        def _handler(params):
-            nonlocal actual
-            actual = params
-            done.set()
-
-        ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
-
-        ls_session.notify_did_save(
+        getattr(ls_session, notify_method)(
             {
                 "textDocument": {
                     "uri": TEST_FILE_URI,
