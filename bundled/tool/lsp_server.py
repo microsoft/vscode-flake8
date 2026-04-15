@@ -20,6 +20,8 @@ from urllib.parse import urlparse, urlunparse
 _lint_versions: Dict[str, int] = {}
 _lint_versions_lock = threading.Lock()
 
+NOTEBOOK_CELL_SCHEME = "vscode-notebook-cell"
+
 
 # **********************************************************
 # Update sys.path before importing any bundled libraries.
@@ -67,6 +69,7 @@ update_environ_path()
 # Imports needed for the language server goes below this.
 # **********************************************************
 import lsp_jsonrpc as jsonrpc
+import lsp_notebook as notebook
 import lsp_utils as utils
 from lsprotocol import types as lsp
 from pygls import uris
@@ -78,28 +81,12 @@ GLOBAL_SETTINGS = {}
 RUNNER = pathlib.Path(__file__).parent / "lsp_runner.py"
 
 MAX_WORKERS = 5
-NOTEBOOK_SYNC_OPTIONS = lsp.NotebookDocumentSyncOptions(
-    notebook_selector=[
-        lsp.NotebookDocumentFilterWithNotebook(
-            notebook="jupyter-notebook",
-            cells=[
-                lsp.NotebookCellLanguage(language="python"),
-            ],
-        ),
-        lsp.NotebookDocumentFilterWithNotebook(
-            notebook="interactive",
-            cells=[
-                lsp.NotebookCellLanguage(language="python"),
-            ],
-        ),
-    ],
-    save=True,
-)
+
 LSP_SERVER = LanguageServer(
     name="flake8-server",
     version="v0.1.0",
     max_workers=MAX_WORKERS,
-    notebook_document_sync=NOTEBOOK_SYNC_OPTIONS,
+    notebook_document_sync=notebook.NOTEBOOK_SYNC_OPTIONS,
 )
 
 
@@ -177,48 +164,25 @@ def did_close(params: lsp.DidCloseTextDocumentParams) -> None:
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_OPEN)
 def notebook_did_open(params: lsp.DidOpenNotebookDocumentParams) -> None:
-    """Run diagnostics on each code cell when a notebook is opened."""
-    nb = LSP_SERVER.workspace.get_notebook_document(
-        notebook_uri=params.notebook_document.uri
-    )
-    if nb is None:
-        return
-    for cell in nb.cells:
-        if cell.kind == lsp.NotebookCellKind.Code and cell.document is not None:
-            _lint_notebook_cell(cell.document)
+    """Run diagnostics on all code cells when a notebook is opened."""
+    _linting_helper_notebook(params.notebook_document.uri)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CHANGE)
 def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
-    """Re-lint cells whose text changed or that were newly added."""
-    if params.change is None or params.change.cells is None:
-        return
-
-    for cell_content in params.change.cells.text_content or []:
-        if cell_content.document:
-            _lint_notebook_cell(cell_content.document.uri)
-
-    structure = params.change.cells.structure
-    if structure and structure.did_open:
-        for cell_document in structure.did_open:
-            _lint_notebook_cell(cell_document.uri)
-
-    if structure and structure.did_close:
-        for cell_document in structure.did_close:
-            _clear_notebook_cell_diagnostics(cell_document.uri)
+    """Re-lint all cells when any cell changes (for cross-cell context)."""
+    if params.change is not None and params.change.cells is not None:
+        structure = params.change.cells.structure
+        if structure and structure.did_close:
+            for cell_document in structure.did_close:
+                _clear_notebook_cell_diagnostics(cell_document.uri)
+    _linting_helper_notebook(params.notebook_document.uri)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_SAVE)
 def notebook_did_save(params: lsp.DidSaveNotebookDocumentParams) -> None:
     """Re-lint all cells when a notebook is saved."""
-    nb = LSP_SERVER.workspace.get_notebook_document(
-        notebook_uri=params.notebook_document.uri
-    )
-    if nb is None:
-        return
-    for cell in nb.cells:
-        if cell.kind == lsp.NotebookCellKind.Code and cell.document is not None:
-            _lint_notebook_cell(cell.document)
+    _linting_helper_notebook(params.notebook_document.uri)
 
 
 @LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CLOSE)
@@ -237,21 +201,93 @@ def _is_supported_file(document: TextDocument) -> bool:
     return False
 
 
-def _lint_notebook_cell(cell_uri: str) -> None:
-    """Lint a single notebook cell and publish its diagnostics."""
-    document = LSP_SERVER.workspace.get_text_document(cell_uri)
-    if document is None:
-        return
-    # Update path as pygls generates an invalid path.
-    # TODO: Remove when fixed.
-    document.path = _get_document_path(cell_uri)
-    # Linting is only supported for python cells in notebooks.
-    if document.language_id != "python":
-        return
-    diagnostics: list[lsp.Diagnostic] = _linting_helper(document, is_notebook=True)
-    LSP_SERVER.text_document_publish_diagnostics(
-        lsp.PublishDiagnosticsParams(uri=cell_uri, diagnostics=diagnostics)
-    )
+def _linting_helper_notebook(notebook_uri: str) -> None:
+    """Lint all code cells together and publish per-cell diagnostics."""
+    try:
+        nb = LSP_SERVER.workspace.get_notebook_document(notebook_uri=notebook_uri)
+        if nb is None:
+            return
+
+        # Increment version early so that any in-flight run from a prior call
+        # will see a newer version and discard its stale results.
+        with _lint_versions_lock:
+            version = _lint_versions.get(notebook_uri, 0) + 1
+            _lint_versions[notebook_uri] = version
+
+        combined_source, cell_map = notebook.build_notebook_source(
+            nb.cells, LSP_SERVER.workspace.get_text_document
+        )
+        if not cell_map:
+            for cell in nb.cells:
+                if cell.kind == lsp.NotebookCellKind.Code and cell.document:
+                    LSP_SERVER.text_document_publish_diagnostics(
+                        lsp.PublishDiagnosticsParams(uri=cell.document, diagnostics=[])
+                    )
+            return
+
+        # Build a synthetic document pointing at the notebook's .ipynb path so
+        # that settings resolution and flake8 invocation work correctly.
+        nb_path = _get_document_path(notebook_uri)
+        combined_doc = notebook.SyntheticDocument(
+            uri=notebook_uri,
+            path=nb_path,
+            source=combined_source,
+        )
+
+        result = _run_tool_on_document(combined_doc, use_stdin=True)
+
+        # Discard stale results if a newer request has arrived.
+        with _lint_versions_lock:
+            if _lint_versions.get(notebook_uri, 0) != version:
+                log_to_output(
+                    f"Discarding stale lint results for {notebook_uri} "
+                    f"(version {version} superseded by {_lint_versions[notebook_uri]})"
+                )
+                return
+
+        combined_diagnostics: Sequence[lsp.Diagnostic] = []
+        if result and result.stdout:
+            log_to_output(f"{notebook_uri} :\r\n{result.stdout}")
+            settings = copy.deepcopy(_get_settings_by_document(combined_doc))
+            combined_diagnostics = _parse_output_using_regex(
+                result.stdout, severity=settings["severity"]
+            )
+
+        per_cell = notebook.remap_diagnostics_to_cells(combined_diagnostics, cell_map)
+
+        # Publish per-cell diagnostics; cells with no issues get an empty list
+        # so that stale diagnostics from a previous run are cleared.
+        for cell_uri, diags in per_cell.items():
+            LSP_SERVER.text_document_publish_diagnostics(
+                lsp.PublishDiagnosticsParams(uri=cell_uri, diagnostics=diags)
+            )
+
+        # Clear diagnostics for empty code cells that were skipped by
+        # build_notebook_source so stale diagnostics don't persist.
+        for cell in nb.cells:
+            if (
+                cell.kind == lsp.NotebookCellKind.Code
+                and cell.document
+                and cell.document not in per_cell
+            ):
+                LSP_SERVER.text_document_publish_diagnostics(
+                    lsp.PublishDiagnosticsParams(uri=cell.document, diagnostics=[])
+                )
+    except Exception:  # pylint: disable=broad-except
+        log_error(f"Notebook linting failed with error:\r\n{traceback.format_exc()}")
+        # Clear stale diagnostics on error
+        try:
+            nb = LSP_SERVER.workspace.get_notebook_document(notebook_uri=notebook_uri)
+            if nb:
+                for cell in nb.cells:
+                    if cell.kind == lsp.NotebookCellKind.Code and cell.document:
+                        LSP_SERVER.text_document_publish_diagnostics(
+                            lsp.PublishDiagnosticsParams(
+                                uri=cell.document, diagnostics=[]
+                            )
+                        )
+        except Exception:
+            pass
 
 
 def _clear_notebook_cell_diagnostics(cell_uri: str) -> None:
@@ -262,10 +298,15 @@ def _clear_notebook_cell_diagnostics(cell_uri: str) -> None:
 
 
 def _linting_helper(
-    document: TextDocument, is_notebook: bool = False
+    document: TextDocument,
 ) -> list[lsp.Diagnostic]:
     try:
-        if not is_notebook and not _is_supported_file(document):
+        # Skip notebook cells — they are linted via _linting_helper_notebook
+        # which concatenates all cells before passing to flake8.
+        if str(document.uri).startswith(NOTEBOOK_CELL_SCHEME):
+            return []
+
+        if not _is_supported_file(document):
             log_always(f"Skipping linting for {document.uri} skipped: not supported")
             return []
 
@@ -275,8 +316,7 @@ def _linting_helper(
             lint_version = _lint_versions.get(document.uri, 0) + 1
             _lint_versions[document.uri] = lint_version
 
-        # If notebook set use_stdin=True to pass the document *content* to the tool, not its path.
-        result = _run_tool_on_document(document, use_stdin=is_notebook)
+        result = _run_tool_on_document(document, use_stdin=False)
 
         # If a newer lint request arrived while we were running, discard
         # these stale results — the newer request will publish its own.

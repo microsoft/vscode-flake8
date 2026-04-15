@@ -102,7 +102,8 @@ def test_notebook_did_open():
 
         def _handler(params):
             received.append(params)
-            done.set()
+            if params.get("uri") == code_cell_uri:
+                done.set()
 
         ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
 
@@ -119,10 +120,10 @@ def test_notebook_did_open():
             }
         )
 
-        assert done.wait(TIMEOUT)
-        assert any(
-            r.get("uri") == code_cell_uri for r in received
-        ), f"Expected diagnostics for {code_cell_uri!r}, got: {received}"
+        assert done.wait(TIMEOUT), (
+            f"Timed out waiting for diagnostics for {code_cell_uri!r}, "
+            f"got: {received}"
+        )
 
 
 def test_notebook_did_change_text_content():
@@ -153,7 +154,8 @@ def test_notebook_did_change_text_content():
 
         def _handler(params):
             received.append(params)
-            done.set()
+            if params.get("uri") == code_cell_uri:
+                done.set()
 
         ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
 
@@ -184,10 +186,10 @@ def test_notebook_did_change_text_content():
             }
         )
 
-        assert done.wait(TIMEOUT)
-        assert any(
-            r.get("uri") == code_cell_uri for r in received
-        ), f"Expected diagnostics for {code_cell_uri!r}, got: {received}"
+        assert done.wait(TIMEOUT), (
+            f"Timed out waiting for diagnostics for {code_cell_uri!r}, "
+            f"got: {received}"
+        )
 
 
 def test_notebook_did_save():
@@ -218,7 +220,8 @@ def test_notebook_did_save():
 
         def _handler(params):
             received.append(params)
-            done.set()
+            if params.get("uri") == code_cell_uri:
+                done.set()
 
         ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
 
@@ -231,10 +234,10 @@ def test_notebook_did_save():
             }
         )
 
-        assert done.wait(TIMEOUT)
-        assert any(
-            r.get("uri") == code_cell_uri for r in received
-        ), f"Expected diagnostics for {code_cell_uri!r}, got: {received}"
+        assert done.wait(TIMEOUT), (
+            f"Timed out waiting for diagnostics for {code_cell_uri!r}, "
+            f"got: {received}"
+        )
 
 
 def test_notebook_did_change_new_cell_kind_filter():
@@ -280,7 +283,8 @@ def test_notebook_did_change_new_cell_kind_filter():
 
         def _handler(params):
             received.append(params)
-            done.set()
+            if params.get("uri") == new_code_cell_uri:
+                done.set()
 
         ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
 
@@ -400,6 +404,10 @@ def test_notebook_did_close():
 
 
 SAMPLE_NOTEBOOK_ERR = constants.TEST_DATA / "sample1" / "sample_notebook_err.ipynb"
+SAMPLE_NOTEBOOK_MAGIC = constants.TEST_DATA / "sample1" / "sample_notebook_magic.ipynb"
+SAMPLE_NOTEBOOK_CROSS_CELL = (
+    constants.TEST_DATA / "sample1" / "sample_notebook_cross_cell.ipynb"
+)
 
 
 def test_notebook_cell_reports_specific_error():
@@ -464,3 +472,114 @@ def test_notebook_cell_reports_specific_error():
             "start": {"line": 0, "character": 0},
             "end": {"line": 0, "character": 0},
         }, f"Unexpected range: {diag['range']}"
+
+
+def test_notebook_magic_lines_no_syntax_error():
+    """IPython magic lines (%, !) must not produce syntax errors.
+
+    When a notebook cell contains IPython magic commands such as
+    ``%load_ext autoreload``, flake8 must not report a syntax error for
+    that cell. The magic lines are replaced with ``pass`` before linting.
+    """
+    nb_path = str(SAMPLE_NOTEBOOK_MAGIC)
+    nb_uri, cells, cell_text_documents = _load_notebook(nb_path)
+    # First cell contains magic lines; second cell has valid Python.
+    magic_cell_uri = cell_text_documents[0]["uri"]
+
+    all_received: List[Dict] = []
+    done = Event()
+
+    with session.LspSession() as ls_session:
+        ls_session.initialize(defaults.vscode_initialize_defaults())
+
+        def _handler(params):
+            all_received.append(params)
+            # Wait until both code cells have been published.
+            code_cell_uris = {
+                d["uri"] for d in cell_text_documents if d["languageId"] == "python"
+            }
+            received_uris = {r["uri"] for r in all_received}
+            if code_cell_uris.issubset(received_uris):
+                done.set()
+
+        ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
+
+        ls_session.notify_notebook_did_open(
+            {
+                "notebookDocument": {
+                    "uri": nb_uri,
+                    "notebookType": "jupyter-notebook",
+                    "version": 1,
+                    "metadata": {},
+                    "cells": cells,
+                },
+                "cellTextDocuments": cell_text_documents,
+            }
+        )
+
+        assert done.wait(TIMEOUT), "Timed out waiting for diagnostics after open"
+
+    # The magic-line cell must not have a syntax-error diagnostic.
+    magic_cell_results = [r for r in all_received if r.get("uri") == magic_cell_uri]
+    assert (
+        magic_cell_results
+    ), f"No diagnostics notification for magic cell {magic_cell_uri!r}"
+    last_magic_diags = magic_cell_results[-1]["diagnostics"]
+    syntax_errors = [d for d in last_magic_diags if d.get("code") == "E999"]
+    assert (
+        not syntax_errors
+    ), f"Magic-line cell should not have syntax errors, got: {syntax_errors}"
+
+
+def test_notebook_cross_cell_import_not_flagged_unused():
+    """An import in one cell must not be flagged as unused if used in another.
+
+    When cell 0 does ``import os`` and cell 1 does ``path = os.getcwd()``,
+    the whole-notebook linting approach must see that ``os`` is used and
+    must NOT report F401 for cell 0.
+    """
+    nb_path = str(SAMPLE_NOTEBOOK_CROSS_CELL)
+    nb_uri, cells, cell_text_documents = _load_notebook(nb_path)
+    # Cell 0 has `import os`; cell 1 uses `os.getcwd()`.
+    import_cell_uri = cell_text_documents[0]["uri"]
+
+    all_received: List[Dict] = []
+    done = Event()
+
+    with session.LspSession() as ls_session:
+        ls_session.initialize(defaults.vscode_initialize_defaults())
+
+        def _handler(params):
+            all_received.append(params)
+            code_cell_uris = {
+                d["uri"] for d in cell_text_documents if d["languageId"] == "python"
+            }
+            received_uris = {r["uri"] for r in all_received}
+            if code_cell_uris.issubset(received_uris):
+                done.set()
+
+        ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
+
+        ls_session.notify_notebook_did_open(
+            {
+                "notebookDocument": {
+                    "uri": nb_uri,
+                    "notebookType": "jupyter-notebook",
+                    "version": 1,
+                    "metadata": {},
+                    "cells": cells,
+                },
+                "cellTextDocuments": cell_text_documents,
+            }
+        )
+
+        assert done.wait(TIMEOUT), "Timed out waiting for diagnostics after open"
+
+    # The import cell must not receive a F401 unused-import diagnostic.
+    import_cell_results = [r for r in all_received if r.get("uri") == import_cell_uri]
+    assert import_cell_results, f"No diagnostics for import cell {import_cell_uri!r}"
+    last_import_diags = import_cell_results[-1]["diagnostics"]
+    unused_imports = [d for d in last_import_diags if d.get("code") == "F401"]
+    assert (
+        not unused_imports
+    ), f"Cross-cell import must not be flagged as unused, got: {unused_imports}"
