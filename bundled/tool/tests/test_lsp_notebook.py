@@ -335,7 +335,7 @@ class TestRemapDiagnosticsToCells:
         d = result["cell:0"][0]
         assert d.range.start.line == 1
         assert d.range.end.line == 2  # clamped to max_end_line (3 - 1 = 2)
-        assert d.range.end.character == 0  # clamped → character=0
+        assert d.range.end.character == 2147483647  # clamped → end-of-line (LSP max)
 
     def test_diag_outside_all_cells_is_discarded(self, cell_map):
         diags = [_diag(10, 0, 10, 5, "orphaned")]

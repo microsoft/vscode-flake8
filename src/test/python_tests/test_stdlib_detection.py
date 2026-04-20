@@ -183,22 +183,24 @@ def test_false_positive_site_packages_in_name():
 
 def test_user_site_packages_none_handling():
     """Test that None user site-packages is handled gracefully."""
-    # This test validates the fix for the case where site.getusersitepackages() returns None
-    # We can't easily simulate this, but we can verify the function handles None properly
+    # The shared package uses lru_cache; mock the underlying site function
+    # and clear the cache so classify_python_file re-evaluates.
+    from unittest.mock import patch
+
     import lsp_utils
+    from vscode_common_python_lsp import paths as _paths
 
-    # Temporarily override _user_site_packages to None to test the handling
-    original_value = lsp_utils._user_site_packages
+    _paths._get_user_site_root.cache_clear()
     try:
-        lsp_utils._user_site_packages = None
-
-        # Should return False when _user_site_packages is None
-        test_file = "/home/user/.local/lib/python3.12/site-packages/pytest/__init__.py"
-        result = lsp_utils.is_user_site_packages_file(test_file)
-        assert not result, "Should return False when _user_site_packages is None"
+        with patch.object(_paths.site, "getusersitepackages", return_value=None):
+            _paths._get_user_site_root.cache_clear()
+            # Should return False when user site is None
+            test_file = "/home/user/.local/lib/python3.12/site-packages/pytest/__init__.py"
+            result = lsp_utils.is_user_site_packages_file(test_file)
+            assert not result, "Should return False when user site is None"
     finally:
-        # Restore original value
-        lsp_utils._user_site_packages = original_value
+        # Restore real cached value
+        _paths._get_user_site_root.cache_clear()
 
 
 if __name__ == "__main__":
