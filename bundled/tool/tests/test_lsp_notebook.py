@@ -16,6 +16,7 @@ if _TOOL_DIR not in sys.path:
     sys.path.insert(0, _TOOL_DIR)
 
 import lsp_notebook  # noqa: E402
+from vscode_common_python_lsp.notebook import MAX_LSP_CHARACTER  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -335,7 +336,10 @@ class TestRemapDiagnosticsToCells:
         d = result["cell:0"][0]
         assert d.range.start.line == 1
         assert d.range.end.line == 2  # clamped to max_end_line (3 - 1 = 2)
-        assert d.range.end.character == 2147483647  # clamped → end-of-line (LSP max)
+        # The shared package uses MAX_LSP_CHARACTER (2^31-1, the LSP uinteger max)
+        # instead of 0 when clamping cross-cell diagnostics.  This means "end of
+        # line" per the LSP spec, avoiding zero-width or inverted ranges.
+        assert d.range.end.character == MAX_LSP_CHARACTER
 
     def test_diag_outside_all_cells_is_discarded(self, cell_map):
         diags = [_diag(10, 0, 10, 5, "orphaned")]
