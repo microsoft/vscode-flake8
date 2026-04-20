@@ -24,6 +24,14 @@ def _install_bundle(session: nox.Session) -> None:
         "-r",
         "./requirements.txt",
     )
+    session.install(
+        "-t",
+        "./bundled/libs",
+        "--no-cache-dir",
+        "--no-deps",
+        "--upgrade",
+        "./submodules/vscode-common-python-lsp/python",
+    )
 
 
 def _check_files(names: List[str]) -> None:
