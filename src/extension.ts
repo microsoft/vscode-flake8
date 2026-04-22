@@ -27,8 +27,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(outputChannel, registerLogger(outputChannel));
 
     const changeLogLevel = async (c: vscode.LogLevel, g: vscode.LogLevel) => {
-        const level = getLSClientTraceLevel(c, g);
-        await lsClient?.setTrace(level);
+        try {
+            const level = getLSClientTraceLevel(c, g);
+            await lsClient?.setTrace(level);
+        } catch (ex) {
+            traceError(`Failed to set trace level: ${ex}`);
+        }
     };
 
     context.subscriptions.push(
@@ -76,17 +80,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     context.subscriptions.push(
         onDidChangePythonInterpreter(async () => {
-            await runServer();
+            try {
+                await runServer();
+            } catch (ex) {
+                traceError(`Failed to restart server on interpreter change: ${ex}`);
+            }
         }),
         registerCommand(`${serverId}.showLogs`, async () => {
             outputChannel.show();
         }),
         registerCommand(`${serverId}.restart`, async () => {
-            await runServer();
+            try {
+                await runServer();
+            } catch (ex) {
+                traceError(`Failed to restart server: ${ex}`);
+            }
         }),
         onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
             if (checkIfConfigurationChanged(e, serverId)) {
-                await runServer();
+                try {
+                    await runServer();
+                } catch (ex) {
+                    traceError(`Failed to restart server on config change: ${ex}`);
+                }
             }
         }),
         registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
@@ -100,19 +116,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     logLegacySettings();
 
     setImmediate(async () => {
-        const interpreter = getInterpreterFromSetting(serverId);
-        if (interpreter === undefined || interpreter.length === 0) {
-            traceLog(`Python extension loading`);
-            await initializePython(context.subscriptions);
-            traceLog(`Python extension loaded`);
-        } else {
-            await runServer();
+        try {
+            const interpreter = getInterpreterFromSetting(serverId);
+            if (interpreter === undefined || interpreter.length === 0) {
+                traceLog(`Python extension loading`);
+                await initializePython(context.subscriptions);
+                traceLog(`Python extension loaded`);
+            } else {
+                await runServer();
+            }
+        } catch (ex) {
+            traceError(`Failed during extension initialization: ${ex}`);
         }
     });
 }
 
 export async function deactivate(): Promise<void> {
     if (lsClient) {
-        await lsClient.stop();
+        try {
+            await lsClient.stop();
+        } catch (ex) {
+            traceError(`Server: Stop failed: ${ex}`);
+        }
     }
 }

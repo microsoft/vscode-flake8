@@ -6,6 +6,7 @@ import { traceLog, traceWarn } from './logging';
 import { getInterpreterDetails } from './python';
 import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
 import { getInterpreterFromSetting } from './utilities';
+import { expandTilde } from './envFile';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 const DEFAULT_SEVERITY: Record<string, string> = {
@@ -25,6 +26,7 @@ export interface ISettings {
     interpreter: string[];
     importStrategy: string;
     showNotifications: string;
+    extraPaths: string[];
 }
 
 export function getExtensionSettings(namespace: string, includeInterpreter?: boolean): Promise<ISettings[]> {
@@ -81,6 +83,21 @@ function getCwd(config: WorkspaceConfiguration, workspace: WorkspaceFolder): str
     return resolveVariables([cwd], workspace)[0];
 }
 
+function getExtraPaths(namespace: string, workspace: WorkspaceFolder): string[] {
+    const config = getConfiguration(namespace, workspace);
+    const extraPaths = config.get<string[]>('extraPaths', []);
+    if (extraPaths.length > 0) {
+        return extraPaths;
+    }
+    // Fall back to python.analysis.extraPaths if the extension-specific setting is empty
+    const pythonConfig = getConfiguration('python', workspace.uri);
+    const legacyExtraPaths = pythonConfig.get<string[]>('analysis.extraPaths', []);
+    if (legacyExtraPaths.length > 0) {
+        traceLog('Using extraPaths from `python.analysis.extraPaths`.');
+    }
+    return legacyExtraPaths;
+}
+
 export async function getWorkspaceSettings(
     namespace: string,
     workspace: WorkspaceFolder,
@@ -120,8 +137,16 @@ export async function getWorkspaceSettings(
         ignorePatterns: resolveVariables(config.get<string[]>('ignorePatterns', []), workspace),
         interpreter: resolveVariables(interpreter, workspace),
         importStrategy: config.get<string>('importStrategy', 'useBundled'),
-        showNotifications: config.get<string>('showNotifications', 'off'),
+        showNotifications: config.get<string>('showNotifications', 'onError'),
+        extraPaths: resolveVariables(getExtraPaths(namespace, workspace), workspace),
     };
+    // Apply tilde expansion only to path-typed settings
+    workspaceSetting.path = workspaceSetting.path.map(expandTilde);
+    workspaceSetting.extraPaths = workspaceSetting.extraPaths.map(expandTilde);
+    if (workspaceSetting.cwd.startsWith('~')) {
+        workspaceSetting.cwd = expandTilde(workspaceSetting.cwd);
+    }
+
     return workspaceSetting;
 }
 
@@ -151,7 +176,8 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
         ignorePatterns: getGlobalValue<string[]>(config, 'ignorePatterns', []),
         interpreter: interpreter ?? [],
         importStrategy: getGlobalValue<string>(config, 'importStrategy', 'fromEnvironment'),
-        showNotifications: getGlobalValue<string>(config, 'showNotifications', 'off'),
+        showNotifications: getGlobalValue<string>(config, 'showNotifications', 'onError'),
+        extraPaths: getGlobalValue<string[]>(config, 'extraPaths', []),
     };
     return setting;
 }
@@ -167,6 +193,7 @@ export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespa
         `${namespace}.importStrategy`,
         `${namespace}.showNotifications`,
         `${namespace}.ignorePatterns`,
+        `${namespace}.extraPaths`,
     ];
     const changed = settings.map((s) => e.affectsConfiguration(s));
     return changed.includes(true);

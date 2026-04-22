@@ -11,8 +11,16 @@ import pathlib
 import re
 import sys
 import sysconfig
+import threading
 import traceback
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from urllib.parse import urlparse, urlunparse
+
+# Track lint request versions per URI to discard stale results from superseded runs.
+_lint_versions: Dict[str, int] = {}
+_lint_versions_lock = threading.Lock()
+
+NOTEBOOK_CELL_SCHEME = "vscode-notebook-cell"
 
 
 # **********************************************************
@@ -61,6 +69,7 @@ update_environ_path()
 # Imports needed for the language server goes below this.
 # **********************************************************
 import lsp_jsonrpc as jsonrpc
+import lsp_notebook as notebook
 import lsp_utils as utils
 from lsprotocol import types as lsp
 from pygls import uris
@@ -72,9 +81,37 @@ GLOBAL_SETTINGS = {}
 RUNNER = pathlib.Path(__file__).parent / "lsp_runner.py"
 
 MAX_WORKERS = 5
+
 LSP_SERVER = LanguageServer(
-    name="flake8-server", version="v0.1.0", max_workers=MAX_WORKERS
+    name="flake8-server",
+    version="v0.1.0",
+    max_workers=MAX_WORKERS,
+    notebook_document_sync=notebook.NOTEBOOK_SYNC_OPTIONS,
 )
+
+
+def _get_document_path(document: str) -> str:
+    """Returns the filesystem path for a document.
+
+    Examples:
+        file:///path/to/file.py -> /path/to/file.py
+        vscode-notebook-cell:/path/to/notebook.ipynb#C00001 -> /path/to/notebook.ipynb
+    """
+    if not document.startswith("file:"):
+        parsed = urlparse(document)
+        file_uri = urlunparse(
+            (
+                "file",
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                parsed.query,
+                "",
+            )
+        )
+        if result := uris.to_fs_path(file_uri):
+            return result
+    return uris.to_fs_path(document) or document
 
 
 # **********************************************************
@@ -122,6 +159,37 @@ def did_close(params: lsp.DidCloseTextDocumentParams) -> None:
     LSP_SERVER.text_document_publish_diagnostics(
         lsp.PublishDiagnosticsParams(uri=document.uri, diagnostics=[])
     )
+    _lint_versions.pop(document.uri, None)
+
+
+@LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_OPEN)
+def notebook_did_open(params: lsp.DidOpenNotebookDocumentParams) -> None:
+    """Run diagnostics on all code cells when a notebook is opened."""
+    _linting_helper_notebook(params.notebook_document.uri)
+
+
+@LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CHANGE)
+def notebook_did_change(params: lsp.DidChangeNotebookDocumentParams) -> None:
+    """Re-lint all cells when any cell changes (for cross-cell context)."""
+    if params.change is not None and params.change.cells is not None:
+        structure = params.change.cells.structure
+        if structure and structure.did_close:
+            for cell_document in structure.did_close:
+                _clear_notebook_cell_diagnostics(cell_document.uri)
+    _linting_helper_notebook(params.notebook_document.uri)
+
+
+@LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_SAVE)
+def notebook_did_save(params: lsp.DidSaveNotebookDocumentParams) -> None:
+    """Re-lint all cells when a notebook is saved."""
+    _linting_helper_notebook(params.notebook_document.uri)
+
+
+@LSP_SERVER.feature(lsp.NOTEBOOK_DOCUMENT_DID_CLOSE)
+def notebook_did_close(params: lsp.DidCloseNotebookDocumentParams) -> None:
+    """Clear diagnostics for all cells when the notebook is closed."""
+    for cell_doc in params.cell_text_documents:
+        _clear_notebook_cell_diagnostics(cell_doc.uri)
 
 
 def _is_supported_file(document: TextDocument) -> bool:
@@ -133,28 +201,147 @@ def _is_supported_file(document: TextDocument) -> bool:
     return False
 
 
-def _linting_helper(document: TextDocument) -> list[lsp.Diagnostic]:
+def _linting_helper_notebook(notebook_uri: str) -> None:
+    """Lint all code cells together and publish per-cell diagnostics."""
     try:
+        nb = LSP_SERVER.workspace.get_notebook_document(notebook_uri=notebook_uri)
+        if nb is None:
+            return
+
+        # Increment version early so that any in-flight run from a prior call
+        # will see a newer version and discard its stale results.
+        with _lint_versions_lock:
+            version = _lint_versions.get(notebook_uri, 0) + 1
+            _lint_versions[notebook_uri] = version
+
+        combined_source, cell_map = notebook.build_notebook_source(
+            nb.cells, LSP_SERVER.workspace.get_text_document
+        )
+        if not cell_map:
+            for cell in nb.cells:
+                if cell.kind == lsp.NotebookCellKind.Code and cell.document:
+                    LSP_SERVER.text_document_publish_diagnostics(
+                        lsp.PublishDiagnosticsParams(uri=cell.document, diagnostics=[])
+                    )
+            return
+
+        # Build a synthetic document pointing at the notebook's .ipynb path so
+        # that settings resolution and flake8 invocation work correctly.
+        nb_path = _get_document_path(notebook_uri)
+        combined_doc = notebook.SyntheticDocument(
+            uri=notebook_uri,
+            path=nb_path,
+            source=combined_source,
+        )
+
+        result = _run_tool_on_document(combined_doc, use_stdin=True)
+
+        # Discard stale results if a newer request has arrived.
+        with _lint_versions_lock:
+            if _lint_versions.get(notebook_uri, 0) != version:
+                log_to_output(
+                    f"Discarding stale lint results for {notebook_uri} "
+                    f"(version {version} superseded by {_lint_versions[notebook_uri]})"
+                )
+                return
+
+        combined_diagnostics: Sequence[lsp.Diagnostic] = []
+        if result and result.stdout:
+            log_to_output(f"{notebook_uri} :\r\n{result.stdout}")
+            settings = copy.deepcopy(_get_settings_by_document(combined_doc))
+            combined_diagnostics = _parse_output_using_regex(
+                result.stdout, severity=settings["severity"]
+            )
+
+        per_cell = notebook.remap_diagnostics_to_cells(combined_diagnostics, cell_map)
+
+        # Publish per-cell diagnostics; cells with no issues get an empty list
+        # so that stale diagnostics from a previous run are cleared.
+        for cell_uri, diags in per_cell.items():
+            LSP_SERVER.text_document_publish_diagnostics(
+                lsp.PublishDiagnosticsParams(uri=cell_uri, diagnostics=diags)
+            )
+
+        # Clear diagnostics for empty code cells that were skipped by
+        # build_notebook_source so stale diagnostics don't persist.
+        for cell in nb.cells:
+            if (
+                cell.kind == lsp.NotebookCellKind.Code
+                and cell.document
+                and cell.document not in per_cell
+            ):
+                LSP_SERVER.text_document_publish_diagnostics(
+                    lsp.PublishDiagnosticsParams(uri=cell.document, diagnostics=[])
+                )
+    except Exception:  # pylint: disable=broad-except
+        log_error(f"Notebook linting failed with error:\r\n{traceback.format_exc()}")
+        # Clear stale diagnostics on error
+        try:
+            nb = LSP_SERVER.workspace.get_notebook_document(notebook_uri=notebook_uri)
+            if nb:
+                for cell in nb.cells:
+                    if cell.kind == lsp.NotebookCellKind.Code and cell.document:
+                        LSP_SERVER.text_document_publish_diagnostics(
+                            lsp.PublishDiagnosticsParams(
+                                uri=cell.document, diagnostics=[]
+                            )
+                        )
+        except Exception:
+            pass
+
+
+def _clear_notebook_cell_diagnostics(cell_uri: str) -> None:
+    """Clear diagnostics for a single notebook cell."""
+    LSP_SERVER.text_document_publish_diagnostics(
+        lsp.PublishDiagnosticsParams(uri=cell_uri, diagnostics=[])
+    )
+
+
+def _linting_helper(
+    document: TextDocument,
+) -> list[lsp.Diagnostic]:
+    try:
+        # Skip notebook cells — they are linted via _linting_helper_notebook
+        # which concatenates all cells before passing to flake8.
+        if str(document.uri).startswith(NOTEBOOK_CELL_SCHEME):
+            return []
+
         if not _is_supported_file(document):
             log_always(f"Skipping linting for {document.uri} skipped: not supported")
             return []
 
-        result = _run_tool_on_document(document, use_stdin=False)
-        if result and result.stdout:
-            log_to_output(f"{document.uri} :\r\n{result.stdout}")
+        # Bump the version for this URI so any concurrent or queued lint for
+        # the same document can detect that it has been superseded.
+        with _lint_versions_lock:
+            lint_version = _lint_versions.get(document.uri, 0) + 1
+            _lint_versions[document.uri] = lint_version
 
-            # deep copy here to prevent accidentally updating global settings.
-            settings = copy.deepcopy(_get_settings_by_document(document))
-            return _parse_output_using_regex(
-                result.stdout, severity=settings["severity"]
-            )
+        result = _run_tool_on_document(document, use_stdin=False)
+
+        # If a newer lint request arrived while we were running, discard
+        # these stale results — the newer request will publish its own.
+        with _lint_versions_lock:
+            if _lint_versions.get(document.uri, 0) != lint_version:
+                log_to_output(
+                    f"Discarding stale lint results for {document.uri} "
+                    f"(version {lint_version} superseded by "
+                    f"{_lint_versions[document.uri]})"
+                )
+                return []
+
+        if result:
+            if result.stderr:
+                log_warning(f"Flake8 stderr for {document.uri}:\r\n{result.stderr}")
+            if result.stdout:
+                log_to_output(f"{document.uri} :\r\n{result.stdout}")
+
+                # deep copy here to prevent accidentally updating global settings.
+                settings = copy.deepcopy(_get_settings_by_document(document))
+                return _parse_output_using_regex(
+                    result.stdout, severity=settings["severity"]
+                )
     except Exception:
-        LSP_SERVER.window_log_message(
-            lsp.LogMessageParams(
-                message=f"Linting failed with error:\r\n{traceback.format_exc()}",
-                type=lsp.MessageType.Error,
-            )
-        )
+        log_error(f"Linting failed with error:\r\n{traceback.format_exc()}")
     return []
 
 
@@ -384,13 +571,20 @@ def initialize(params: lsp.InitializeParams) -> None:
     """LSP handler for initialize request."""
     log_to_output(f"CWD Server: {os.getcwd()}")
 
-    paths = "\r\n   ".join(sys.path)
-    log_to_output(f"sys.path used to run Server:\r\n   {paths}")
-
     GLOBAL_SETTINGS.update(**params.initialization_options.get("globalSettings", {}))
 
     settings = params.initialization_options["settings"]
     _update_workspace_settings(settings)
+
+    # Add extra paths to sys.path for in-process module execution
+    import_strategy = os.getenv("LS_IMPORT_STRATEGY", "useBundled")
+    for setting in settings:
+        for extra in setting.get("extraPaths", []):
+            update_sys_path(extra, import_strategy)
+
+    paths = "\r\n   ".join(sys.path)
+    log_to_output(f"sys.path used to run Server:\r\n   {paths}")
+
     log_to_output(
         f"Settings used to run Server:\r\n{json.dumps(settings, indent=4, ensure_ascii=False)}\r\n"
     )
@@ -472,7 +666,8 @@ def _get_global_defaults():
         ),
         "ignorePatterns": GLOBAL_SETTINGS.get("ignorePatterns", []),
         "importStrategy": GLOBAL_SETTINGS.get("importStrategy", "useBundled"),
-        "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "off"),
+        "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "onError"),
+        "extraPaths": GLOBAL_SETTINGS.get("extraPaths", []),
     }
 
 
@@ -542,20 +737,78 @@ def _get_settings_by_document(document: TextDocument | None):
     }
 
 
+def _get_settings_by_path(file_path: pathlib.Path):
+    while file_path != file_path.parent:
+        str_file_path = utils.normalize_path(file_path)
+        for _key, settings in WORKSPACE_SETTINGS.items():
+            if settings["workspaceFS"] == str_file_path:
+                return settings
+        file_path = file_path.parent
+
+    setting_values = list(WORKSPACE_SETTINGS.values())
+    if not setting_values:
+        return {}
+    return setting_values[0]
+
+
 # *****************************************************
 # Internal execution APIs.
 # *****************************************************
 def get_cwd(settings: Dict[str, Any], document: Optional[TextDocument]) -> str:
-    """Returns cwd for the given settings and document."""
-    if settings["cwd"] == "${workspaceFolder}":
-        return settings["workspaceFS"]
+    """Returns the working directory for running the tool.
 
-    if settings["cwd"] == "${fileDirname}":
-        if document is not None:
-            return os.fspath(pathlib.Path(document.path).parent)
-        return settings["workspaceFS"]
+    Resolves the following VS Code file-related variable substitutions when
+    a document is available:
 
-    return settings["cwd"]
+    - ``${file}`` – absolute path of the current document.
+    - ``${fileBasename}`` – file name with extension (e.g. ``foo.py``).
+    - ``${fileBasenameNoExtension}`` – file name without extension (e.g. ``foo``).
+    - ``${fileExtname}`` – file extension including the dot (e.g. ``.py``).
+    - ``${fileDirname}`` – directory containing the current document.
+    - ``${fileDirnameBasename}`` – name of the directory containing the document.
+    - ``${relativeFile}`` – document path relative to the workspace root.
+    - ``${relativeFileDirname}`` – document directory relative to the workspace root.
+    - ``${fileWorkspaceFolder}`` – workspace root folder for the document.
+
+    Variables that do not depend on the document (``${workspaceFolder}``,
+    ``${userHome}``, ``${cwd}``) are pre-resolved by the TypeScript client.
+
+    If no document is available and the value contains any unresolvable
+    file-variable, the workspace root is returned as a fallback.
+
+    See https://code.visualstudio.com/docs/reference/variables-reference
+    """
+    cwd = settings.get("cwd", settings["workspaceFS"])
+
+    workspace_fs = settings["workspaceFS"]
+
+    if document and document.path:
+        file_path = document.path
+        file_dir = os.path.dirname(file_path)
+        file_basename = os.path.basename(file_path)
+        file_stem, file_ext = os.path.splitext(file_basename)
+
+        substitutions = {
+            "${file}": file_path,
+            "${fileBasename}": file_basename,
+            "${fileBasenameNoExtension}": file_stem,
+            "${fileExtname}": file_ext,
+            "${fileDirname}": file_dir,
+            "${fileDirnameBasename}": os.path.basename(file_dir),
+            "${relativeFile}": os.path.relpath(file_path, workspace_fs),
+            "${relativeFileDirname}": os.path.relpath(file_dir, workspace_fs),
+            "${fileWorkspaceFolder}": workspace_fs,
+        }
+
+        for token, value in substitutions.items():
+            cwd = cwd.replace(token, value)
+    else:
+        # Without a document we cannot resolve file-related variables.
+        # Fall back to workspace root if any remain.
+        if "${file" in cwd or "${relativeFile" in cwd:
+            cwd = workspace_fs
+
+    return cwd
 
 
 def _run_tool_on_document(
@@ -576,8 +829,16 @@ def _run_tool_on_document(
         log_warning("See `flake8.enabled` in settings.json to enabling linting.")
         return None
 
-    if str(document.uri).startswith("vscode-notebook-cell"):
-        log_warning(f"Skipping notebook cells [Not Supported]: {str(document.uri)}")
+    if utils.is_user_site_packages_file(document.path):
+        log_warning(
+            f"Skipping user site-packages file (user packages excluded): {document.path}"
+        )
+        return None
+
+    if utils.is_system_site_packages_file(document.path):
+        log_warning(
+            f"Skipping system site-packages file (site packages excluded): {document.path}"
+        )
         return None
 
     if utils.is_stdlib_file(document.path):

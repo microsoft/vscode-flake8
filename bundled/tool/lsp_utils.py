@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import fnmatch
 import io
+import logging
 import os
 import os.path
 import pathlib
@@ -16,7 +17,7 @@ import subprocess
 import sys
 import sysconfig
 import threading
-from typing import Any, Callable, List, Sequence, Tuple, Union
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 
 # Save the working directory used when loading this module
 SERVER_CWD = os.getcwd()
@@ -31,11 +32,11 @@ def as_list(content: Union[Any, List[Any], Tuple[Any]]) -> List[Any]:
 
 
 def _get_sys_config_paths() -> List[str]:
-    """Returns paths from sysconfig.get_paths()."""
+    """Returns actual Python standard library paths from sysconfig.get_paths()."""
     return [
         path
         for group, path in sysconfig.get_paths().items()
-        if group not in ["data", "platdata", "scripts"]
+        if group in ["stdlib", "platstdlib"]
     ]
 
 
@@ -55,13 +56,23 @@ def _get_extensions_dir() -> List[str]:
 
 _stdlib_paths = set(
     str(pathlib.Path(p).resolve())
-    for p in (
-        as_list(site.getsitepackages())
-        + as_list(site.getusersitepackages())
-        + _get_sys_config_paths()
-        + _get_extensions_dir()
-    )
+    for p in (_get_sys_config_paths() + _get_extensions_dir())
 )
+
+# Store user site packages path separately for specific handling
+try:
+    _user_site = site.getusersitepackages()
+except Exception:
+    _user_site = None
+_user_site_packages = str(pathlib.Path(_user_site).resolve()) if _user_site else None
+
+# Store system site packages paths separately for specific handling
+try:
+    _system_site_packages = set(
+        str(pathlib.Path(p).resolve()) for p in as_list(site.getsitepackages())
+    )
+except Exception:
+    _system_site_packages = set()
 
 
 def is_same_path(file_path1: str, file_path2: str) -> bool:
@@ -77,30 +88,77 @@ def normalize_path(file_path: str, resolve_symlinks: bool = True) -> str:
     return str(path)
 
 
-def is_current_interpreter(executable) -> bool:
+def is_current_interpreter(executable: str) -> bool:
     """Returns true if the executable path is same as the current interpreter."""
     return is_same_path(executable, sys.executable)
+
+
+def is_user_site_packages_file(file_path: str) -> bool:
+    """Return True if the file belongs to the user site-packages directory."""
+    if _user_site_packages is None:
+        return False
+    normalized_path = normalize_path(file_path, resolve_symlinks=True)
+    return normalized_path.startswith(_user_site_packages)
+
+
+def is_system_site_packages_file(file_path: str) -> bool:
+    """Return True if the file belongs to system site-packages directories."""
+    normalized_path = normalize_path(file_path, resolve_symlinks=True)
+    return any(normalized_path.startswith(path) for path in _system_site_packages)
 
 
 def is_stdlib_file(file_path: str) -> bool:
     """Return True if the file belongs to the standard library."""
     normalized_path = normalize_path(file_path, resolve_symlinks=True)
+
+    # Exclude site-packages and dist-packages directories which contain third-party packages
+    # These are checked separately with their own messages
+    # Use pathlib.PurePath.parts for cross-platform compatibility (handles forward/backward slashes)
+    path_parts = pathlib.PurePath(normalized_path).parts
+    if "site-packages" in path_parts or "dist-packages" in path_parts:
+        return False
+
     return any(normalized_path.startswith(path) for path in _stdlib_paths)
 
 
-def is_match(patterns: List[str], file_path: str) -> bool:
+def _get_relative_path(file_path: str, workspace_root: str) -> str:
+    """Returns the file path relative to the workspace root.
+
+    Falls back to the original path if the workspace root is empty or
+    the paths are on different drives (Windows).
+    """
+    if not workspace_root:
+        return pathlib.Path(file_path).as_posix()
+    try:
+        return pathlib.Path(file_path).relative_to(workspace_root).as_posix()
+    except ValueError:
+        return pathlib.Path(file_path).as_posix()
+
+
+def is_match(patterns: List[str], file_path: str, workspace_root: str = None) -> bool:
     """Returns true if the file matches one of the fnmatch patterns."""
     if not patterns:
         return False
-    return any(fnmatch.fnmatch(file_path, pattern) for pattern in patterns)
+    relative_path = (
+        _get_relative_path(file_path, workspace_root) if workspace_root else file_path
+    )
+    file_name = pathlib.Path(file_path).name
+    return any(
+        fnmatch.fnmatch(relative_path, pattern)
+        or (not pattern.startswith("/") and fnmatch.fnmatch(file_name, pattern))
+        for pattern in patterns
+    )
 
 
 class RunResult:
     """Object to hold result from running tool."""
 
-    def __init__(self, stdout: str, stderr: str):
+    def __init__(
+        self, stdout: str, stderr: str, exit_code: Optional[Union[int, str]] = None
+    ):
         self.stdout: str = stdout
         self.stderr: str = stderr
+        self.exit_code: Optional[Union[int, str]] = exit_code
 
 
 class CustomIO(io.TextIOWrapper):
@@ -144,9 +202,26 @@ def redirect_io(stream: str, new_stream):
 @contextlib.contextmanager
 def change_cwd(new_cwd):
     """Change working directory before running code."""
-    os.chdir(new_cwd)
-    yield
-    os.chdir(SERVER_CWD)
+    try:
+        os.chdir(new_cwd)
+    except OSError as e:
+        logging.warning(
+            "Failed to change directory to %r, running in %r instead: %s",
+            new_cwd,
+            SERVER_CWD,
+            e,
+        )
+        logging.warning(
+            "Hint: if flake8.cwd uses a file-variable like "
+            "${fileDirname}, ${relativeFileDirname}, ${file}, or ${relativeFile}, "
+            "ensure it resolves to a valid path in your environment (e.g. WSL)."
+        )
+        yield
+        return
+    try:
+        yield
+    finally:
+        os.chdir(SERVER_CWD)
 
 
 def _run_module(
@@ -155,6 +230,7 @@ def _run_module(
     """Runs as a module."""
     str_output = CustomIO("<stdout>", encoding="utf-8")
     str_error = CustomIO("<stderr>", encoding="utf-8")
+    exit_code = None
 
     try:
         with substitute_attr(sys, "argv", argv):
@@ -168,10 +244,10 @@ def _run_module(
                             runpy.run_module(module, run_name="__main__")
                     else:
                         runpy.run_module(module, run_name="__main__")
-    except SystemExit:
-        pass
+    except SystemExit as ex:
+        exit_code = ex.code
 
-    return RunResult(str_output.get_value(), str_error.get_value())
+    return RunResult(str_output.get_value(), str_error.get_value(), exit_code)
 
 
 def run_module(
@@ -235,7 +311,7 @@ def _run_api(
     str_output = CustomIO("<stdout>", encoding="utf-8")
     str_error = CustomIO("<stderr>", encoding="utf-8")
 
-    try:
+    with contextlib.suppress(SystemExit):
         with substitute_attr(sys, "argv", argv):
             with redirect_io("stdout", str_output):
                 with redirect_io("stderr", str_error):
@@ -247,7 +323,5 @@ def _run_api(
                             callback(argv, str_output, str_error, str_input)
                     else:
                         callback(argv, str_output, str_error)
-    except SystemExit:
-        pass
 
     return RunResult(str_output.get_value(), str_error.get_value())

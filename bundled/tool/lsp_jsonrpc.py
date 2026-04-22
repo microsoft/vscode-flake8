@@ -3,8 +3,10 @@
 """Light-weight JSON-RPC over standard IO."""
 
 import atexit
+import contextlib
 import io
 import json
+import os
 import pathlib
 import subprocess
 import threading
@@ -98,14 +100,10 @@ class JsonRpc:
 
     def close(self):
         """Closes the underlying streams."""
-        try:
+        with contextlib.suppress(Exception):
             self._reader.close()
-        except:  # noqa: E722
-            pass
-        try:
+        with contextlib.suppress(Exception):
             self._writer.close()
-        except:  # noqa: E722
-            pass
 
     def send_data(self, data):
         """Send given data in JSON-RPC format."""
@@ -134,19 +132,27 @@ class ProcessManager:
     def stop_all_processes(self):
         """Send exit command to all processes and shutdown transport."""
         for i in self._rpc.values():
-            try:
+            with contextlib.suppress(Exception):
                 i.send_data({"id": str(uuid.uuid4()), "method": "exit"})
-            except:  # noqa: E722
-                pass
         self._thread_pool.shutdown(wait=False)
 
-    def start_process(self, workspace: str, args: Sequence[str], cwd: str) -> None:
+    def start_process(
+        self,
+        workspace: str,
+        args: Sequence[str],
+        cwd: str,
+        env: Optional[Dict[str, str]] = None,
+    ) -> None:
         """Starts a process and establishes JSON-RPC communication over stdio."""
+        _env = os.environ.copy()
+        if env is not None:
+            _env.update(env)
         proc = subprocess.Popen(
             args,
             cwd=cwd,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
+            env=_env,
         )
         self._processes[workspace] = proc
         self._rpc[workspace] = create_json_rpc(proc.stdout, proc.stdin)
@@ -217,7 +223,7 @@ def run_over_json_rpc(
     """Uses JSON-RPC to execute a command."""
     rpc: Union[JsonRpc, None] = get_or_start_json_rpc(workspace, interpreter, cwd)
     if not rpc:
-        raise Exception("Failed to run over JSON-RPC.")
+        raise ConnectionError("Failed to run over JSON-RPC.")
 
     msg_id = str(uuid.uuid4())
     msg = {
