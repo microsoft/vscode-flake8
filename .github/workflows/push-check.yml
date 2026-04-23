@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
 
       - name: Build VSIX
         uses: ./.github/actions/build-vsix
@@ -39,7 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
 
       - name: Lint
         uses: ./.github/actions/lint
@@ -64,7 +64,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: ${{ env.special-working-directory-relative }}
-          submodules: recursive
+          submodules: true
 
       # Install bundled libs using env.PYTHON_VERSION even though you test it on other versions.
       - name: Use Python ${{ env.PYTHON_VERSION }}
@@ -117,7 +117,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: ${{ env.special-working-directory-relative }}
-          submodules: recursive
+          submodules: true
 
       - name: Install Node
         uses: actions/setup-node@v6

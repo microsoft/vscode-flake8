@@ -54,7 +54,7 @@
     "main": "./dist/extension.js",
     "l10n": "./l10n",
     "scripts": {
-        "postinstall": "tsc -p submodules/vscode-common-python-lsp/typescript/tsconfig.json",
+        "postinstall": "node scripts/postinstall.js",
         "vscode:prepublish": "npm run package",
         "compile": "webpack",
         "watch": "webpack --watch",
