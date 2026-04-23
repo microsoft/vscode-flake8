@@ -195,7 +195,9 @@ def test_user_site_packages_none_handling():
         with patch.object(_paths.site, "getusersitepackages", return_value=None):
             _paths._get_user_site_root.cache_clear()
             # Should return False when user site is None
-            test_file = "/home/user/.local/lib/python3.12/site-packages/pytest/__init__.py"
+            test_file = (
+                "/home/user/.local/lib/python3.12/site-packages/pytest/__init__.py"
+            )
             result = lsp_utils.is_user_site_packages_file(test_file)
             assert not result, "Should return False when user site is None"
     finally:
