@@ -23,7 +23,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
 
       - name: Build VSIX
         uses: ./.github/actions/build-vsix
@@ -37,7 +36,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
 
       - name: Lint
         uses: ./.github/actions/lint
