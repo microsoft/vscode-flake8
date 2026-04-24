@@ -9,6 +9,5 @@
         "noImplicitReturns": true, 
         "noFallthroughCasesInSwitch": true, 
         "noUnusedParameters": true
-    },
-    "exclude": ["submodules"]
+    }
 }

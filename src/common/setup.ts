@@ -3,7 +3,7 @@
 
 // Thin wrapper: delegates to vscode-common-python-lsp shared package,
 // passing the tool-specific EXTENSION_ROOT_DIR.
-import { loadServerDefaults as _loadServerDefaults, IServerInfo } from 'vscode-common-python-lsp';
+import { loadServerDefaults as _loadServerDefaults, IServerInfo } from '@vscode/common-python-lsp';
 import { EXTENSION_ROOT_DIR } from './constants';
 
 export type { IServerInfo };

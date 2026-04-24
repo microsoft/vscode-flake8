@@ -30,7 +30,7 @@ def _install_bundle(session: nox.Session) -> None:
         "--no-cache-dir",
         "--no-deps",
         "--upgrade",
-        "./submodules/vscode-common-python-lsp/python",
+        "vscode-common-python-lsp==0.1.1",
     )
 
 
@@ -71,6 +71,7 @@ def _update_npm_packages(session: nox.Session) -> None:
         "vscode-languageclient",
         "@types/vscode",
         "@types/node",
+        "@vscode/common-python-lsp",
     }
     package_json_path = pathlib.Path(__file__).parent / "package.json"
     package_json = json.loads(package_json_path.read_text(encoding="utf-8"))

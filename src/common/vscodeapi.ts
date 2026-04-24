@@ -16,7 +16,7 @@ export {
     onDidChangeConfiguration,
     registerCommand,
     registerDocumentFormattingEditProvider,
-} from 'vscode-common-python-lsp';
+} from '@vscode/common-python-lsp';
 
 export function isVirtualWorkspace(): boolean {
     const isVirtual = workspace.workspaceFolders && workspace.workspaceFolders.every((f) => f.uri.scheme !== 'file');

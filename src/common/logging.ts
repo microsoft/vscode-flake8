@@ -2,4 +2,4 @@
 // Licensed under the MIT License.
 
 // Thin wrapper: delegates to vscode-common-python-lsp shared package.
-export { registerLogger, traceError, traceInfo, traceLog, traceVerbose, traceWarn } from 'vscode-common-python-lsp';
+export { registerLogger, traceError, traceInfo, traceLog, traceVerbose, traceWarn } from '@vscode/common-python-lsp';

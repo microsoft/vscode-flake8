@@ -3,4 +3,4 @@
 
 // Thin wrapper: delegates to vscode-common-python-lsp shared package.
 // expandTilde is re-exported from the shared settings module for settings.ts compat.
-export { getEnvFileVars, expandTilde } from 'vscode-common-python-lsp';
+export { getEnvFileVars, expandTilde } from '@vscode/common-python-lsp';
