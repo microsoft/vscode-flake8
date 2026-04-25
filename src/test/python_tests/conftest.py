@@ -18,7 +18,7 @@ import pytest
 # Module-level mock injection
 # ---------------------------------------------------------------------------
 _INJECTED_MODULES = []
-_INJECTED_PATH = None
+_INJECTED_PATHS = []
 
 
 def setup_lsp_mocks():
@@ -26,7 +26,7 @@ def setup_lsp_mocks():
 
     Tracks what is injected so :func:`teardown_lsp_mocks` can undo it.
     """
-    global _INJECTED_PATH
+    global _INJECTED_PATHS
 
     class _MockLS:
         def __init__(self, *args, **kwargs):
@@ -138,13 +138,14 @@ def setup_lsp_mocks():
     tool_dir = str(pathlib.Path(__file__).parents[3] / "bundled" / "tool")
     if tool_dir not in sys.path:
         sys.path.insert(0, tool_dir)
-        _INJECTED_PATH = tool_dir
+        _INJECTED_PATHS.append(tool_dir)
 
     # Also add bundled/libs so the shared vscode_common_python_lsp package
     # is importable (installed there by nox install_bundled_libs).
     libs_dir = str(pathlib.Path(__file__).parents[3] / "bundled" / "libs")
     if libs_dir not in sys.path:
         sys.path.insert(0, libs_dir)
+        _INJECTED_PATHS.append(libs_dir)
 
 
 # Run at import time so test modules can ``import lsp_server`` at the top level.
@@ -163,8 +164,10 @@ def _lsp_mock_teardown():
     for mod_name in _INJECTED_MODULES:
         sys.modules.pop(mod_name, None)
     _INJECTED_MODULES.clear()
-    if _INJECTED_PATH and _INJECTED_PATH in sys.path:
-        sys.path.remove(_INJECTED_PATH)
+    for p in reversed(_INJECTED_PATHS):
+        if p in sys.path:
+            sys.path.remove(p)
+    _INJECTED_PATHS.clear()
 
 
 @pytest.fixture()

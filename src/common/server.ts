@@ -7,10 +7,7 @@
 
 import { Disposable, LogOutputChannel } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import {
-    getServerCwd as _getServerCwd,
-    restartServer as _restartServer,
-} from '@vscode/common-python-lsp';
+import { getServerCwd as _getServerCwd, restartServer as _restartServer } from '@vscode/common-python-lsp';
 import { FLAKE8_TOOL_CONFIG } from './constants';
 import { traceError } from './logging';
 import { getPythonProvider } from './python';
