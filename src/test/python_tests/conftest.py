@@ -26,6 +26,7 @@ def setup_lsp_mocks():
 
     Tracks what is injected so :func:`teardown_lsp_mocks` can undo it.
     """
+
     class _MockLS:
         def __init__(self, *args, **kwargs):
             pass
