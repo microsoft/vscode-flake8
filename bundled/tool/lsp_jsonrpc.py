@@ -12,14 +12,10 @@ import pathlib
 from collections.abc import Sequence
 from typing import Union
 
-from vscode_common_python_lsp import (
-    JsonRpc,
-    RpcRunResult,
-    StreamClosedException,
-    get_or_start_json_rpc as _get_or_start_json_rpc,
-    run_over_json_rpc as _run_over_json_rpc,
-    shutdown_json_rpc,
-)
+from vscode_common_python_lsp import JsonRpc, RpcRunResult, StreamClosedException
+from vscode_common_python_lsp import get_or_start_json_rpc as _get_or_start_json_rpc
+from vscode_common_python_lsp import run_over_json_rpc as _run_over_json_rpc
+from vscode_common_python_lsp import shutdown_json_rpc
 
 RUNNER_SCRIPT = str(pathlib.Path(__file__).parent / "lsp_runner.py")
 
