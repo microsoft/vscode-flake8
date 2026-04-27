@@ -39,4 +39,7 @@ from vscode_common_python_lsp import (  # noqa: E402
 )
 
 RPC = JsonRpc(sys.stdin.buffer, sys.stdout.buffer)
+# run_message_loop handles the sys.path manipulation internally:
+# it wraps each run_module call with substitute_attr(sys, "path", [""] + sys.path[:])
+# so tool modules can import from CWD.
 run_message_loop(RPC, run_module, RunResult)

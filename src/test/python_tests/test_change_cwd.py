@@ -34,6 +34,9 @@ def test_change_cwd_permission_error_does_not_crash(caplog):
     original_cwd = os.getcwd()
     body_executed = False
 
+    # Patch os.chdir at the shared package's module level — this is where
+    # change_cwd() calls it.  The mock target is stable: change_cwd lives
+    # in context.py and calls os.chdir directly (no intermediate wrapper).
     with patch(
         "vscode_common_python_lsp.context.os.chdir",
         side_effect=PermissionError("Access denied"),
@@ -58,7 +61,7 @@ def test_change_cwd_oserror_does_not_crash(caplog):
     body_executed = False
 
     with patch(
-        "vscode_common_python_lsp.context.os.chdir",
+        "vscode_common_python_lsp.context.os.chdir",  # same stable target as above
         side_effect=OSError("Some OS error"),
     ):
         with caplog.at_level(logging.WARNING):
