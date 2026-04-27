@@ -11,9 +11,11 @@ import sysconfig
 import tempfile
 from pathlib import Path
 
-# Add bundled tool to path
+# Add bundled tool and libs to path
 bundled_path = Path(__file__).parent.parent.parent.parent / "bundled" / "tool"
+libs_path = Path(__file__).parent.parent.parent.parent / "bundled" / "libs"
 sys.path.insert(0, str(bundled_path))
+sys.path.insert(0, str(libs_path))
 
 from lsp_utils import (
     is_stdlib_file,
