@@ -50,6 +50,13 @@ export async function getDebuggerPath(): Promise<string | undefined> {
     }
 }
 
+/**
+ * Reset cached provider for testing. The relay emitter (_onDidChangePython)
+ * is module-level and survives resets. A new provider subscription is
+ * immediately created so interpreter-change events keep flowing.
+ * Note: callers should re-invoke initializePython() on the new provider
+ * if environment-change listeners are needed.
+ */
 export function resetCachedApis(): void {
     _providerSub.dispose();
     _provider.dispose();

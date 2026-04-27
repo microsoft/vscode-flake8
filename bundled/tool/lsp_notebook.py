@@ -10,13 +10,11 @@ from vscode_common_python_lsp import (  # noqa: F401
     NOTEBOOK_SYNC_OPTIONS,
     CellOffset,
     SyntheticDocument,
+    TextDocumentLike,
     build_notebook_source,
     get_cell_for_line,
     remap_diagnostics_to_cells,
 )
-
-# Re-export the TextDocumentLike protocol from the shared notebook module.
-from vscode_common_python_lsp.notebook import TextDocumentLike  # noqa: F401
 
 # Re-export CellMap type alias for backward compatibility.
 CellMap = list[CellOffset]

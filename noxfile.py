@@ -30,7 +30,7 @@ def _install_bundle(session: nox.Session) -> None:
         "--no-cache-dir",
         "--no-deps",
         "--upgrade",
-        "vscode-common-python-lsp==0.1.1",
+        "vscode-common-python-lsp==0.2.0",
     )
 
 
