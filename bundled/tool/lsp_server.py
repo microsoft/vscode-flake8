@@ -68,13 +68,13 @@ update_environ_path()
 # **********************************************************
 # Imports needed for the language server goes below this.
 # **********************************************************
-import lsp_jsonrpc as jsonrpc
 import lsp_notebook as notebook
 import lsp_utils as utils
 from lsprotocol import types as lsp
 from pygls import uris
 from pygls.lsp.server import LanguageServer
 from pygls.workspace import TextDocument
+from vscode_common_python_lsp.server import ToolServer, ToolServerConfig
 
 WORKSPACE_SETTINGS = {}
 GLOBAL_SETTINGS = {}
@@ -82,12 +82,37 @@ RUNNER = pathlib.Path(__file__).parent / "lsp_runner.py"
 
 MAX_WORKERS = 5
 
+# Create the LSP server with notebook sync, then wrap in ToolServer for
+# shared logging, CWD resolution, and tool execution.  Settings management
+# remains local because flake8 uses normalize_path(resolve_symlinks=False).
 LSP_SERVER = LanguageServer(
     name="flake8-server",
     version="v0.1.0",
     max_workers=MAX_WORKERS,
     notebook_document_sync=notebook.NOTEBOOK_SYNC_OPTIONS,
 )
+
+FLAKE8_CONFIG = ToolServerConfig(
+    tool_module="flake8",
+    tool_display="Flake8",
+    tool_args=["--format='%(row)d,%(col)d,%(code).1s,%(code)s:%(text)s'"],
+    min_version="5.0.0",
+    runner_script=str(RUNNER),
+    default_notification_level="onError",
+    default_settings={
+        "enabled": True,
+        "severity": {
+            "E": "Error",
+            "F": "Error",
+            "I": "Information",
+            "W": "Warning",
+        },
+        "ignorePatterns": [],
+        "extraPaths": [],
+    },
+)
+
+tool_server = ToolServer(FLAKE8_CONFIG, server=LSP_SERVER)
 
 
 def _get_document_path(document: str) -> str:
@@ -115,16 +140,12 @@ def _get_document_path(document: str) -> str:
 
 
 # **********************************************************
-# Tool specific code goes below this.
+# Tool constants — derived from FLAKE8_CONFIG for backward compatibility.
 # **********************************************************
-TOOL_MODULE = "flake8"
-TOOL_DISPLAY = "Flake8"
-
-# Default arguments always passed to flake8.
-TOOL_ARGS = ["--format='%(row)d,%(col)d,%(code).1s,%(code)s:%(text)s'"]
-
-# Minimum version of flake8 supported.
-MIN_VERSION = "5.0.0"
+TOOL_MODULE = FLAKE8_CONFIG.tool_module
+TOOL_DISPLAY = FLAKE8_CONFIG.tool_display
+TOOL_ARGS = FLAKE8_CONFIG.tool_args
+MIN_VERSION = FLAKE8_CONFIG.min_version
 
 # **********************************************************
 # Linting features start here
@@ -598,13 +619,13 @@ def initialize(params: lsp.InitializeParams) -> None:
 @LSP_SERVER.feature(lsp.EXIT)
 def on_exit(_params: Optional[Any] = None) -> None:
     """Handle clean up on exit."""
-    jsonrpc.shutdown_json_rpc()
+    tool_server.handle_exit()
 
 
 @LSP_SERVER.feature(lsp.SHUTDOWN)
 def on_shutdown(_params: Optional[Any] = None) -> None:
     """Handle clean up on shutdown."""
-    jsonrpc.shutdown_json_rpc()
+    tool_server.handle_shutdown()
 
 
 def _log_version_info() -> None:
@@ -757,58 +778,10 @@ def _get_settings_by_path(file_path: pathlib.Path):
 def get_cwd(settings: Dict[str, Any], document: Optional[TextDocument]) -> str:
     """Returns the working directory for running the tool.
 
-    Resolves the following VS Code file-related variable substitutions when
-    a document is available:
-
-    - ``${file}`` – absolute path of the current document.
-    - ``${fileBasename}`` – file name with extension (e.g. ``foo.py``).
-    - ``${fileBasenameNoExtension}`` – file name without extension (e.g. ``foo``).
-    - ``${fileExtname}`` – file extension including the dot (e.g. ``.py``).
-    - ``${fileDirname}`` – directory containing the current document.
-    - ``${fileDirnameBasename}`` – name of the directory containing the document.
-    - ``${relativeFile}`` – document path relative to the workspace root.
-    - ``${relativeFileDirname}`` – document directory relative to the workspace root.
-    - ``${fileWorkspaceFolder}`` – workspace root folder for the document.
-
-    Variables that do not depend on the document (``${workspaceFolder}``,
-    ``${userHome}``, ``${cwd}``) are pre-resolved by the TypeScript client.
-
-    If no document is available and the value contains any unresolvable
-    file-variable, the workspace root is returned as a fallback.
-
-    See https://code.visualstudio.com/docs/reference/variables-reference
+    Delegates to :meth:`ToolServer.get_cwd` for VS Code variable substitution.
+    Kept as a module-level function for backward compatibility with tests.
     """
-    cwd = settings.get("cwd", settings["workspaceFS"])
-
-    workspace_fs = settings["workspaceFS"]
-
-    if document and document.path:
-        file_path = document.path
-        file_dir = os.path.dirname(file_path)
-        file_basename = os.path.basename(file_path)
-        file_stem, file_ext = os.path.splitext(file_basename)
-
-        substitutions = {
-            "${file}": file_path,
-            "${fileBasename}": file_basename,
-            "${fileBasenameNoExtension}": file_stem,
-            "${fileExtname}": file_ext,
-            "${fileDirname}": file_dir,
-            "${fileDirnameBasename}": os.path.basename(file_dir),
-            "${relativeFile}": os.path.relpath(file_path, workspace_fs),
-            "${relativeFileDirname}": os.path.relpath(file_dir, workspace_fs),
-            "${fileWorkspaceFolder}": workspace_fs,
-        }
-
-        for token, value in substitutions.items():
-            cwd = cwd.replace(token, value)
-    else:
-        # Without a document we cannot resolve file-related variables.
-        # Fall back to workspace root if any remain.
-        if "${file" in cwd or "${relativeFile" in cwd:
-            cwd = workspace_fs
-
-    return cwd
+    return tool_server.get_cwd(settings, document)
 
 
 def _run_tool_on_document(
@@ -857,22 +830,17 @@ def _run_tool_on_document(
     code_workspace = settings["workspaceFS"]
     cwd = get_cwd(settings, document)
 
-    use_path = False
-    use_rpc = False
+    # Determine execution mode and build argv.
     if settings["path"]:
-        # 'path' setting takes priority over everything.
-        use_path = True
+        mode = "path"
         argv = settings["path"]
     elif settings["interpreter"] and not utils.is_current_interpreter(
         settings["interpreter"][0]
     ):
-        # If there is a different interpreter set use JSON-RPC to the subprocess
-        # running under that interpreter.
+        mode = "rpc"
         argv = [TOOL_MODULE]
-        use_rpc = True
     else:
-        # if the interpreter is same as the interpreter running this
-        # process then run as module.
+        mode = "module"
         argv = [TOOL_MODULE]
 
     argv += TOOL_ARGS + settings["args"] + extra_args
@@ -882,177 +850,78 @@ def _run_tool_on_document(
     else:
         argv += [document.path]
 
-    if use_path:
-        # This mode is used when running executables.
-        log_to_output(" ".join(argv))
-        log_to_output(f"CWD Server: {cwd}")
-        result = utils.run_path(
-            argv=argv,
-            use_stdin=use_stdin,
-            cwd=cwd,
-            source=document.source.replace("\r\n", "\n"),
-        )
-        if result.stderr:
-            log_to_output(result.stderr)
-    elif use_rpc:
-        # This mode is used if the interpreter running this server is different from
-        # the interpreter used for running this server.
-        log_to_output(" ".join(settings["interpreter"] + ["-m"] + argv))
-        log_to_output(f"CWD Linter: {cwd}")
+    # Normalize line endings for path-mode stdin (subprocess expects Unix endings).
+    source = document.source
+    if mode == "path" and use_stdin:
+        source = source.replace("\r\n", "\n")
 
-        result = jsonrpc.run_over_json_rpc(
-            workspace=code_workspace,
-            interpreter=settings["interpreter"],
-            module=TOOL_MODULE,
-            argv=argv,
-            use_stdin=use_stdin,
-            cwd=cwd,
-            source=document.source,
-        )
-        result = _to_run_result_with_logging(result)
-    else:
-        # In this mode the tool is run as a module in the same process as the language server.
-        log_to_output(" ".join([sys.executable, "-m"] + argv))
-        log_to_output(f"CWD Linter: {cwd}")
-        # This is needed to preserve sys.path, in cases where the tool modifies
-        # sys.path and that might not work for this scenario next time around.
-        with utils.substitute_attr(sys, "path", [""] + sys.path[:]):
-            try:
-                result = utils.run_module(
-                    module=TOOL_MODULE,
-                    argv=argv,
-                    use_stdin=use_stdin,
-                    cwd=cwd,
-                    source=document.source,
-                )
-            except Exception:
-                log_error(traceback.format_exc(chain=True))
-                raise
-        if result.stderr:
-            log_to_output(result.stderr)
-
-    return result
+    return tool_server.execute_tool(
+        argv=argv,
+        mode=mode,
+        settings=settings,
+        use_stdin=use_stdin,
+        cwd=cwd,
+        workspace=code_workspace,
+        source=source,
+    )
 
 
 def _run_tool(extra_args: Sequence[str], settings: Dict[str, Any]) -> utils.RunResult:
-    """Runs tool."""
+    """Runs tool (e.g. ``--version``).  Delegates to :meth:`ToolServer.execute_tool`."""
     code_workspace = settings["workspaceFS"]
     cwd = get_cwd(settings, None)
 
-    use_path = False
-    use_rpc = False
     if len(settings["path"]) > 0:
-        # 'path' setting takes priority over everything.
-        use_path = True
+        mode = "path"
         argv = settings["path"]
     elif len(settings["interpreter"]) > 0 and not utils.is_current_interpreter(
         settings["interpreter"][0]
     ):
-        # If there is a different interpreter set use JSON-RPC to the subprocess
-        # running under that interpreter.
+        mode = "rpc"
         argv = [TOOL_MODULE]
-        use_rpc = True
     else:
-        # if the interpreter is same as the interpreter running this
-        # process then run as module.
+        mode = "module"
         argv = [TOOL_MODULE]
 
     argv += extra_args
 
-    if use_path:
-        # This mode is used when running executables.
-        log_to_output(" ".join(argv))
-        log_to_output(f"CWD Server: {cwd}")
-        result = utils.run_path(argv=argv, use_stdin=True, cwd=cwd)
-        if result.stderr:
-            log_to_output(result.stderr)
-    elif use_rpc:
-        # This mode is used if the interpreter running this server is different from
-        # the interpreter used for running this server.
-        log_to_output(" ".join(settings["interpreter"] + ["-m"] + argv))
-        log_to_output(f"CWD Linter: {cwd}")
-        result = jsonrpc.run_over_json_rpc(
-            workspace=code_workspace,
-            interpreter=settings["interpreter"],
-            module=TOOL_MODULE,
-            argv=argv,
-            use_stdin=True,
-            cwd=cwd,
-        )
-        result = _to_run_result_with_logging(result)
-    else:
-        # In this mode the tool is run as a module in the same process as the language server.
-        log_to_output(" ".join([sys.executable, "-m"] + argv))
-        log_to_output(f"CWD Linter: {cwd}")
-        # This is needed to preserve sys.path, in cases where the tool modifies
-        # sys.path and that might not work for this scenario next time around.
-        with utils.substitute_attr(sys, "path", [""] + sys.path[:]):
-            try:
-                result = utils.run_module(
-                    module=TOOL_MODULE, argv=argv, use_stdin=True, cwd=cwd
-                )
-            except Exception:
-                log_error(traceback.format_exc(chain=True))
-                raise
-        if result.stderr:
-            log_to_output(result.stderr)
+    result = tool_server.execute_tool(
+        argv=argv,
+        mode=mode,
+        settings=settings,
+        use_stdin=True,
+        cwd=cwd,
+        workspace=code_workspace,
+    )
 
     log_to_output(f"\r\n{result.stdout}\r\n")
     return result
 
 
-def _to_run_result_with_logging(rpc_result: jsonrpc.RpcRunResult) -> utils.RunResult:
-    error = ""
-    if rpc_result.exception:
-        log_error(rpc_result.exception)
-        error = rpc_result.exception
-    elif rpc_result.stderr:
-        log_to_output(rpc_result.stderr)
-        error = rpc_result.stderr
-    return utils.RunResult(rpc_result.stdout, error)
-
-
 # *****************************************************
 # Logging and notification.
+# Thin wrappers delegating to ToolServer for backward compatibility.
 # *****************************************************
 def log_to_output(
     message: str, msg_type: lsp.MessageType = lsp.MessageType.Log
 ) -> None:
     """Logs messages to Output > Flake8 channel only."""
-    LSP_SERVER.window_log_message(lsp.LogMessageParams(message=message, type=msg_type))
+    tool_server.log_to_output(message, msg_type)
 
 
 def log_error(message: str) -> None:
     """Logs messages with notification on error."""
-    LSP_SERVER.window_log_message(
-        lsp.LogMessageParams(message=message, type=lsp.MessageType.Error)
-    )
-    if os.getenv("LS_SHOW_NOTIFICATION", "off") in ["onError", "onWarning", "always"]:
-        LSP_SERVER.window_show_message(
-            lsp.ShowMessageParams(message=message, type=lsp.MessageType.Error)
-        )
+    tool_server.log_error(message)
 
 
 def log_warning(message: str) -> None:
     """Logs messages with notification on warning."""
-    LSP_SERVER.window_log_message(
-        lsp.LogMessageParams(message=message, type=lsp.MessageType.Warning)
-    )
-    if os.getenv("LS_SHOW_NOTIFICATION", "off") in ["onWarning", "always"]:
-        LSP_SERVER.window_show_message(
-            lsp.ShowMessageParams(message=message, type=lsp.MessageType.Warning)
-        )
+    tool_server.log_warning(message)
 
 
 def log_always(message: str) -> None:
     """Logs messages with notification."""
-    LSP_SERVER.window_log_message(
-        lsp.LogMessageParams(message=message, type=lsp.MessageType.Info)
-    )
-    if os.getenv("LS_SHOW_NOTIFICATION", "off") in ["always"]:
-        LSP_SERVER.window_show_message(
-            lsp.ShowMessageParams(message=message, type=lsp.MessageType.Info)
-        )
+    tool_server.log_always(message)
 
 
 # *****************************************************
