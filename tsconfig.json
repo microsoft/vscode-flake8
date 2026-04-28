@@ -5,6 +5,11 @@
         "lib": ["ES2020"],
         "sourceMap": true,
         "rootDir": "src",
+        // Required: @sinonjs/fake-timers (transitive via sinon) references the
+        // DOM 'Performance' type which is unavailable in our Node/ES2020 lib.
+        // This only skips checking third-party .d.ts files; our own source
+        // code remains fully type-checked.  Same workaround as vscode-isort.
+        "skipLibCheck": true,
         "strict": true,
         "noImplicitReturns": true, 
         "noFallthroughCasesInSwitch": true, 

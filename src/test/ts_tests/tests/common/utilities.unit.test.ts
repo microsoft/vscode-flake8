@@ -3,12 +3,15 @@
 
 import { assert } from 'chai';
 import * as sinon from 'sinon';
+import { workspace } from 'vscode';
 import * as vscodeapi from '../../../../common/vscodeapi';
 import { getDocumentSelector, getInterpreterFromSetting } from '../../../../common/utilities';
 
 suite('Document Selector Tests', () => {
     let isVirtualWorkspaceStub: sinon.SinonStub;
     setup(() => {
+        // isVirtualWorkspace is a local function on flake8's vscodeapi module,
+        // so sinon.stub works here (not a re-exported getter).
         isVirtualWorkspaceStub = sinon.stub(vscodeapi, 'isVirtualWorkspace');
         isVirtualWorkspaceStub.returns(false);
     });
@@ -36,7 +39,9 @@ suite('getInterpreterFromSetting Tests', () => {
     let getConfigurationStub: sinon.SinonStub;
 
     setup(() => {
-        getConfigurationStub = sinon.stub(vscodeapi, 'getConfiguration');
+        // Stub at the vscode npm module level since getInterpreterFromSetting
+        // is re-exported from the shared package (cross-module mock).
+        getConfigurationStub = sinon.stub(workspace, 'getConfiguration');
     });
 
     teardown(() => {

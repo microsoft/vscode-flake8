@@ -11,9 +11,11 @@ import sysconfig
 import tempfile
 from pathlib import Path
 
-# Add bundled tool to path
+# Add bundled tool and libs to path
 bundled_path = Path(__file__).parent.parent.parent.parent / "bundled" / "tool"
+libs_path = Path(__file__).parent.parent.parent.parent / "bundled" / "libs"
 sys.path.insert(0, str(bundled_path))
+sys.path.insert(0, str(libs_path))
 
 from lsp_utils import (
     is_stdlib_file,
@@ -183,22 +185,25 @@ def test_false_positive_site_packages_in_name():
 
 def test_user_site_packages_none_handling():
     """Test that None user site-packages is handled gracefully."""
-    # This test validates the fix for the case where site.getusersitepackages() returns None
-    # We can't easily simulate this, but we can verify the function handles None properly
+    from unittest.mock import patch
+
     import lsp_utils
+    from vscode_common_python_lsp import paths as _paths
+    from vscode_common_python_lsp import reset_caches
 
-    # Temporarily override _user_site_packages to None to test the handling
-    original_value = lsp_utils._user_site_packages
+    reset_caches()
     try:
-        lsp_utils._user_site_packages = None
-
-        # Should return False when _user_site_packages is None
-        test_file = "/home/user/.local/lib/python3.12/site-packages/pytest/__init__.py"
-        result = lsp_utils.is_user_site_packages_file(test_file)
-        assert not result, "Should return False when _user_site_packages is None"
+        with patch.object(_paths.site, "getusersitepackages", return_value=None):
+            reset_caches()
+            # Should return False when user site is None
+            test_file = (
+                "/home/user/.local/lib/python3.12/site-packages/pytest/__init__.py"
+            )
+            result = lsp_utils.is_user_site_packages_file(test_file)
+            assert not result, "Should return False when user site is None"
     finally:
-        # Restore original value
-        lsp_utils._user_site_packages = original_value
+        # Restore real cached value
+        reset_caches()
 
 
 if __name__ == "__main__":

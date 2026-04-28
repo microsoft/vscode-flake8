@@ -1,41 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { Disposable, workspace } from 'vscode';
+// Thin wrapper: delegates to vscode-common-python-lsp shared package,
+// passing the flake8-specific config file patterns and tool name.
+import { Disposable } from 'vscode';
+import { createConfigFileWatchers as _createConfigFileWatchers } from '@vscode/common-python-lsp';
 import { FLAKE8_CONFIG_FILES } from './constants';
-import { traceError, traceLog } from './logging';
 
 export function createConfigFileWatchers(onConfigChanged: () => Promise<void>): Disposable[] {
-    return FLAKE8_CONFIG_FILES.map((pattern) => {
-        const watcher = workspace.createFileSystemWatcher(`**/${pattern}`);
-        let disposed = false;
-        let pending: Promise<void> | undefined;
-
-        const handleEvent = (event: string) => {
-            if (disposed) {
-                return;
-            }
-            traceLog(`Flake8 config file ${event}: ${pattern}`);
-            pending = onConfigChanged()
-                .catch((e) => traceError(`Config file ${event} handler failed`, e))
-                .finally(() => {
-                    pending = undefined;
-                });
-        };
-
-        const changeDisposable = watcher.onDidChange(() => handleEvent('changed'));
-        const createDisposable = watcher.onDidCreate(() => handleEvent('created'));
-        const deleteDisposable = watcher.onDidDelete(() => handleEvent('deleted'));
-
-        return {
-            dispose(): void {
-                disposed = true;
-                pending = undefined;
-                changeDisposable.dispose();
-                createDisposable.dispose();
-                deleteDisposable.dispose();
-                watcher.dispose();
-            },
-        };
-    });
+    return _createConfigFileWatchers(FLAKE8_CONFIG_FILES, 'Flake8', onConfigChanged);
 }
