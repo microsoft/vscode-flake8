@@ -76,15 +76,12 @@ from pygls.lsp.server import LanguageServer
 from pygls.workspace import TextDocument
 from vscode_common_python_lsp.server import ToolServer, ToolServerConfig
 
-WORKSPACE_SETTINGS = {}
-GLOBAL_SETTINGS = {}
 RUNNER = pathlib.Path(__file__).parent / "lsp_runner.py"
 
 MAX_WORKERS = 5
 
 # Create the LSP server with notebook sync, then wrap in ToolServer for
-# shared logging, CWD resolution, and tool execution.  Settings management
-# remains local because flake8 uses normalize_path(resolve_symlinks=False).
+# shared logging, CWD resolution, tool execution, and settings management.
 LSP_SERVER = LanguageServer(
     name="flake8-server",
     version="v0.1.0",
@@ -113,6 +110,11 @@ FLAKE8_CONFIG = ToolServerConfig(
 )
 
 tool_server = ToolServer(FLAKE8_CONFIG, server=LSP_SERVER)
+
+# Backward-compatible module-level aliases — tests and other code reference
+# these directly.  They are the *same* dict objects owned by tool_server.
+WORKSPACE_SETTINGS = tool_server.workspace_settings
+GLOBAL_SETTINGS = tool_server.global_settings
 
 
 def _get_document_path(document: str) -> str:
@@ -592,10 +594,12 @@ def initialize(params: lsp.InitializeParams) -> None:
     """LSP handler for initialize request."""
     log_to_output(f"CWD Server: {os.getcwd()}")
 
-    GLOBAL_SETTINGS.update(**params.initialization_options.get("globalSettings", {}))
+    tool_server.global_settings.update(
+        **params.initialization_options.get("globalSettings", {})
+    )
 
     settings = params.initialization_options["settings"]
-    _update_workspace_settings(settings)
+    tool_server.update_workspace_settings(settings)
 
     # Add extra paths to sys.path for in-process module execution
     import_strategy = os.getenv("LS_IMPORT_STRATEGY", "useBundled")
@@ -610,7 +614,7 @@ def initialize(params: lsp.InitializeParams) -> None:
         f"Settings used to run Server:\r\n{json.dumps(settings, indent=4, ensure_ascii=False)}\r\n"
     )
     log_to_output(
-        f"Global settings:\r\n{json.dumps(GLOBAL_SETTINGS, indent=4, ensure_ascii=False)}\r\n"
+        f"Global settings:\r\n{json.dumps(tool_server.global_settings, indent=4, ensure_ascii=False)}\r\n"
     )
 
     _log_version_info()
@@ -629,7 +633,7 @@ def on_shutdown(_params: Optional[Any] = None) -> None:
 
 
 def _log_version_info() -> None:
-    for value in WORKSPACE_SETTINGS.values():
+    for value in tool_server.workspace_settings.values():
         try:
             from packaging.version import parse as parse_version
 
@@ -668,108 +672,15 @@ def _log_version_info() -> None:
 
 
 # *****************************************************
-# Internal functional and settings management APIs.
+# Internal settings management APIs.
+# Thin wrappers delegating to ToolServer for backward compatibility.
 # *****************************************************
 def _get_global_defaults():
-    return {
-        "path": GLOBAL_SETTINGS.get("path", []),
-        "enabled": GLOBAL_SETTINGS.get("enabled", True),
-        "interpreter": GLOBAL_SETTINGS.get("interpreter", [sys.executable]),
-        "args": GLOBAL_SETTINGS.get("args", []),
-        "severity": GLOBAL_SETTINGS.get(
-            "severity",
-            {
-                "E": "Error",
-                "F": "Error",
-                "I": "Information",
-                "W": "Warning",
-            },
-        ),
-        "ignorePatterns": GLOBAL_SETTINGS.get("ignorePatterns", []),
-        "importStrategy": GLOBAL_SETTINGS.get("importStrategy", "useBundled"),
-        "showNotifications": GLOBAL_SETTINGS.get("showNotifications", "onError"),
-        "extraPaths": GLOBAL_SETTINGS.get("extraPaths", []),
-    }
-
-
-def _update_workspace_settings(settings):
-    # If no workspace specific settings are provided, use global settings with cwd as current working directory of the server.
-    if not settings:
-        key = utils.normalize_path(
-            GLOBAL_SETTINGS.get("cwd", os.getcwd()), resolve_symlinks=False
-        )
-        WORKSPACE_SETTINGS[key] = {
-            "cwd": key,
-            "workspaceFS": key,
-            "workspace": uris.from_fs_path(key),
-            **_get_global_defaults(),
-        }
-        return
-    # Otherwise, update workspace settings with the provided settings and store
-    # them in WORKSPACE_SETTINGS dict with normalized workspaceFS as key.
-    # Do not resolve symlinks here to keep the paths relative to the workspace.
-    for setting in settings:
-        key = utils.normalize_path(
-            uris.to_fs_path(setting["workspace"]), resolve_symlinks=False
-        )
-        WORKSPACE_SETTINGS[key] = {
-            **setting,
-            "workspaceFS": key,
-        }
-
-
-def _get_document_key(document: TextDocument):
-    if WORKSPACE_SETTINGS:
-        document_workspace = pathlib.Path(document.path)
-        workspaces = {s["workspaceFS"] for s in WORKSPACE_SETTINGS.values()}
-
-        # Find workspace settings in parent direcories recursively
-        while document_workspace != document_workspace.parent:
-            # Do not resolve symlinks to keep paths (and parents) relative to the workspace.
-            norm_path = utils.normalize_path(document_workspace, resolve_symlinks=False)
-            if norm_path in workspaces:
-                return norm_path
-            document_workspace = document_workspace.parent
-
-    return None
+    return tool_server.get_global_defaults()
 
 
 def _get_settings_by_document(document: TextDocument | None):
-    # If not document, return first workspace settings
-    if document is None or document.path is None:
-        return list(WORKSPACE_SETTINGS.values())[0]
-
-    key = _get_document_key(document)
-
-    # If key, return workspace settings for the given document
-    if key:
-        return WORKSPACE_SETTINGS[key]
-
-    # If no key, this is either a non-workspace file or there is no workspace.
-    # Return global settings with cwd as the parent directory of the document.
-    key = utils.normalize_path(
-        pathlib.Path(document.path).parent, resolve_symlinks=False
-    )
-    return {
-        "cwd": key,
-        "workspaceFS": key,
-        "workspace": uris.from_fs_path(key),
-        **_get_global_defaults(),
-    }
-
-
-def _get_settings_by_path(file_path: pathlib.Path):
-    while file_path != file_path.parent:
-        str_file_path = utils.normalize_path(file_path)
-        for _key, settings in WORKSPACE_SETTINGS.items():
-            if settings["workspaceFS"] == str_file_path:
-                return settings
-        file_path = file_path.parent
-
-    setting_values = list(WORKSPACE_SETTINGS.values())
-    if not setting_values:
-        return {}
-    return setting_values[0]
+    return tool_server.get_settings_by_document(document)
 
 
 # *****************************************************
