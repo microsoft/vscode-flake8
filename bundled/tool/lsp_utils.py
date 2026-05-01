@@ -9,46 +9,26 @@ providing backward-compatible names used by lsp_server.py.
 from __future__ import annotations
 
 from vscode_common_python_lsp import (
-    CWD_LOCK,
     SERVER_CWD,
-    CustomIO,
     PythonFileKind,
     QuickFixRegistrationError,
     RunResult,
-    as_list,
     change_cwd,
     classify_python_file,
     is_current_interpreter,
     is_match,
-    is_same_path,
-    normalize_path,
-    redirect_io,
-    run_api,
-    run_module,
-    run_path,
-    substitute_attr,
 )
 
 __all__ = [
     "SERVER_CWD",
-    "CWD_LOCK",
-    "as_list",
-    "normalize_path",
-    "is_same_path",
-    "is_current_interpreter",
-    "is_user_site_packages_file",
-    "is_system_site_packages_file",
-    "is_stdlib_file",
-    "is_match",
-    "RunResult",
-    "CustomIO",
-    "substitute_attr",
-    "redirect_io",
-    "change_cwd",
-    "run_module",
-    "run_path",
-    "run_api",
     "QuickFixRegistrationError",
+    "RunResult",
+    "change_cwd",
+    "is_current_interpreter",
+    "is_match",
+    "is_stdlib_file",
+    "is_system_site_packages_file",
+    "is_user_site_packages_file",
 ]
 
 
