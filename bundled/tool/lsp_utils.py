@@ -11,21 +11,13 @@ from __future__ import annotations
 from vscode_common_python_lsp import (
     SERVER_CWD,
     PythonFileKind,
-    QuickFixRegistrationError,
-    RunResult,
     change_cwd,
     classify_python_file,
-    is_current_interpreter,
-    is_match,
 )
 
 __all__ = [
     "SERVER_CWD",
-    "QuickFixRegistrationError",
-    "RunResult",
     "change_cwd",
-    "is_current_interpreter",
-    "is_match",
     "is_stdlib_file",
     "is_system_site_packages_file",
     "is_user_site_packages_file",
