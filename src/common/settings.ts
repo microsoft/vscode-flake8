@@ -12,9 +12,9 @@ import {
     getGlobalSettings as _getGlobalSettings,
     getWorkspaceSettings as _getWorkspaceSettings,
     resolveVariables,
+    traceWarn,
 } from '@vscode/common-python-lsp';
 import { FLAKE8_TOOL_CONFIG } from './constants';
-import { traceWarn } from './logging';
 import { getInterpreterDetails } from './python';
 import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
 
