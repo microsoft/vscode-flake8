@@ -8,16 +8,9 @@ providing backward-compatible names used by lsp_server.py.
 
 from __future__ import annotations
 
-from vscode_common_python_lsp import (
-    SERVER_CWD,
-    PythonFileKind,
-    change_cwd,
-    classify_python_file,
-)
+from vscode_common_python_lsp import PythonFileKind, classify_python_file
 
 __all__ = [
-    "SERVER_CWD",
-    "change_cwd",
     "is_stdlib_file",
     "is_system_site_packages_file",
     "is_user_site_packages_file",

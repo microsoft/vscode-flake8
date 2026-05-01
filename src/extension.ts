@@ -9,7 +9,7 @@ import { initializePython, onDidChangePythonInterpreter } from './common/python'
 import { restartServer } from './common/server';
 import { checkIfConfigurationChanged, getWorkspaceSettings, logLegacySettings } from './common/settings';
 import { loadServerDefaults } from './common/setup';
-import { getInterpreterFromSetting, getLSClientTraceLevel, getProjectRoot } from './common/utilities';
+import { getInterpreterFromSetting, getLSClientTraceLevel, getProjectRoot } from '@vscode/common-python-lsp';
 import { createOutputChannel, onDidChangeConfiguration, registerCommand } from './common/vscodeapi';
 import { registerLanguageStatusItem, updateStatus } from '@vscode/common-python-lsp';
 import { LS_SERVER_RESTART_DELAY, PYTHON_VERSION } from './common/constants';

@@ -5,7 +5,8 @@ import { assert } from 'chai';
 import * as sinon from 'sinon';
 import { workspace } from 'vscode';
 import * as vscodeapi from '../../../../common/vscodeapi';
-import { getDocumentSelector, getInterpreterFromSetting } from '../../../../common/utilities';
+import { getDocumentSelector } from '../../../../common/utilities';
+import { getInterpreterFromSetting } from '@vscode/common-python-lsp';
 
 suite('Document Selector Tests', () => {
     let isVirtualWorkspaceStub: sinon.SinonStub;
