@@ -10,7 +10,6 @@ import os
 import pathlib
 import re
 import sys
-import sysconfig
 import threading
 import traceback
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
@@ -35,26 +34,6 @@ def update_sys_path(path_to_add: str, strategy: str) -> None:
             sys.path.append(path_to_add)
 
 
-# **********************************************************
-# Update PATH before running anything.
-# **********************************************************
-def update_environ_path() -> None:
-    """Update PATH environment variable with the 'scripts' directory.
-    Windows: .venv/Scripts
-    Linux/MacOS: .venv/bin
-    """
-    scripts = sysconfig.get_path("scripts")
-    paths_variants = ["Path", "PATH"]
-
-    for var_name in paths_variants:
-        if var_name in os.environ:
-            paths = os.environ[var_name].split(os.pathsep)
-            if scripts not in paths:
-                paths.insert(0, scripts)
-                os.environ[var_name] = os.pathsep.join(paths)
-                break
-
-
 # Ensure that we can import LSP libraries, and other bundled libraries.
 BUNDLE_DIR = pathlib.Path(__file__).parent.parent
 # Always use bundled server files.
@@ -63,7 +42,6 @@ update_sys_path(
     os.fspath(BUNDLE_DIR / "libs"),
     os.getenv("LS_IMPORT_STRATEGY", "useBundled"),
 )
-update_environ_path()
 
 # **********************************************************
 # Imports needed for the language server goes below this.
@@ -74,6 +52,16 @@ from lsprotocol import types as lsp
 from pygls import uris
 from pygls.lsp.server import LanguageServer
 from pygls.workspace import TextDocument
+from vscode_common_python_lsp import (
+    QuickFixRegistrationError,
+    RunResult,
+    is_current_interpreter,
+    is_match,
+    update_environ_path,
+)
+
+update_environ_path()
+
 from vscode_common_python_lsp.server import ToolServer, ToolServerConfig
 
 RUNNER = pathlib.Path(__file__).parent / "lsp_runner.py"
@@ -458,12 +446,12 @@ class QuickFixSolutions:
         ):
             if isinstance(codes, str):
                 if codes in self._solutions:
-                    raise utils.QuickFixRegistrationError(codes)
+                    raise QuickFixRegistrationError(codes)
                 self._solutions[codes] = func
             else:
                 for code in codes:
                     if code in self._solutions:
-                        raise utils.QuickFixRegistrationError(code)
+                        raise QuickFixRegistrationError(code)
                     self._solutions[code] = func
 
         return decorator
@@ -699,7 +687,7 @@ def _run_tool_on_document(
     document: TextDocument,
     use_stdin: bool = False,
     extra_args: Sequence[str] = [],
-) -> utils.RunResult | None:
+) -> RunResult | None:
     """Runs tool on the given document.
 
     if use_stdin is true then contents of the document is passed to the
@@ -732,7 +720,7 @@ def _run_tool_on_document(
 
         return None
 
-    if utils.is_match(settings["ignorePatterns"], document.path):
+    if is_match(settings["ignorePatterns"], document.path):
         log_warning(
             f"Skipping file due to `flake8.ignorePatterns` match: {document.path}"
         )
@@ -745,7 +733,7 @@ def _run_tool_on_document(
     if settings["path"]:
         mode = "path"
         argv = settings["path"]
-    elif settings["interpreter"] and not utils.is_current_interpreter(
+    elif settings["interpreter"] and not is_current_interpreter(
         settings["interpreter"][0]
     ):
         mode = "rpc"
@@ -777,7 +765,7 @@ def _run_tool_on_document(
     )
 
 
-def _run_tool(extra_args: Sequence[str], settings: Dict[str, Any]) -> utils.RunResult:
+def _run_tool(extra_args: Sequence[str], settings: Dict[str, Any]) -> RunResult:
     """Runs tool (e.g. ``--version``).  Delegates to :meth:`ToolServer.execute_tool`."""
     code_workspace = settings["workspaceFS"]
     cwd = get_cwd(settings, None)
@@ -785,7 +773,7 @@ def _run_tool(extra_args: Sequence[str], settings: Dict[str, Any]) -> utils.RunR
     if len(settings["path"]) > 0:
         mode = "path"
         argv = settings["path"]
-    elif len(settings["interpreter"]) > 0 and not utils.is_current_interpreter(
+    elif len(settings["interpreter"]) > 0 and not is_current_interpreter(
         settings["interpreter"][0]
     ):
         mode = "rpc"
