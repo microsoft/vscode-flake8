@@ -5,7 +5,7 @@ Unit tests for diagnostic regex parsing in lsp_server.
 """
 
 import pytest
-from lsp_server import DIAGNOSTIC_RE
+from lsp_server import DIAGNOSTIC_RE, TOOL_ARGS
 
 
 def _get_group_dict(line: str):
@@ -184,3 +184,8 @@ def test_diagnostic_regex_no_match_without_code():
 def test_diagnostic_regex_no_match_leading_whitespace():
     """Leading whitespace prevents match because .match() is start-anchored."""
     assert _get_group_dict(" 14,5,E,E302:msg") is None
+
+
+def test_flake8_formatter_arg_is_not_shell_quoted():
+    """The built-in formatter must be passed as a raw CLI value, not a quoted shell literal."""
+    assert TOOL_ARGS == ["--format=%(row)d,%(col)d,%(code).1s,%(code)s:%(text)s"]
