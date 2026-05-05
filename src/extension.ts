@@ -2,141 +2,44 @@
 // Licensed under the MIT License.
 
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
-import { createConfigFileWatchers } from './common/configWatcher';
-import { registerLogger, traceError, traceLog, traceVerbose } from '@vscode/common-python-lsp';
-import { initializePython, onDidChangePythonInterpreter } from './common/python';
-import { restartServer } from './common/server';
-import { checkIfConfigurationChanged, getWorkspaceSettings, logLegacySettings } from './common/settings';
-import { loadServerDefaults } from './common/setup';
-import { getInterpreterFromSetting, getLSClientTraceLevel, getProjectRoot } from '@vscode/common-python-lsp';
-import { createOutputChannel, onDidChangeConfiguration, registerCommand } from './common/vscodeapi';
-import { registerLanguageStatusItem, updateStatus } from '@vscode/common-python-lsp';
-import { LS_SERVER_RESTART_DELAY, PYTHON_VERSION } from './common/constants';
+import {
+    createToolContext,
+    deactivateServer,
+    loadServerDefaults,
+    PythonEnvironmentsProvider,
+    registerCommonSubscriptions,
+    registerLogger,
+    ToolExtensionContext,
+} from '@vscode/common-python-lsp';
+import { EXTENSION_ROOT_DIR, FLAKE8_TOOL_CONFIG } from './common/constants';
+import { logLegacySettings } from './common/settings';
 
-let lsClient: LanguageClient | undefined;
+let toolContext: ToolExtensionContext | undefined;
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    // This is required to get server name and module. This should be
-    // the first thing that we do in this extension.
-    const serverInfo = loadServerDefaults();
-    const serverName = serverInfo.name;
-    const serverId = serverInfo.module;
-
-    // Setup logging
-    const outputChannel = createOutputChannel(serverName);
+    const serverInfo = loadServerDefaults(EXTENSION_ROOT_DIR);
+    const outputChannel = vscode.window.createOutputChannel(serverInfo.name, { log: true });
     context.subscriptions.push(outputChannel, registerLogger(outputChannel));
 
-    const changeLogLevel = async (c: vscode.LogLevel, g: vscode.LogLevel) => {
-        try {
-            const level = getLSClientTraceLevel(c, g);
-            await lsClient?.setTrace(level);
-        } catch (ex) {
-            traceError(`Failed to set trace level: ${ex}`);
-        }
-    };
+    const pythonProvider = new PythonEnvironmentsProvider(FLAKE8_TOOL_CONFIG);
+    context.subscriptions.push(pythonProvider);
 
-    context.subscriptions.push(
-        outputChannel.onDidChangeLogLevel(async (e) => {
-            await changeLogLevel(e, vscode.env.logLevel);
-        }),
-        vscode.env.onDidChangeLogLevel(async (e) => {
-            await changeLogLevel(outputChannel.logLevel, e);
-        }),
-    );
+    toolContext = createToolContext({ serverInfo, outputChannel, toolConfig: FLAKE8_TOOL_CONFIG, pythonProvider });
+    context.subscriptions.push({ dispose: () => toolContext?.dispose() });
 
-    traceLog(`Name: ${serverName}`);
-    traceLog(`Module: ${serverInfo.module}`);
-    traceVerbose(`Configuration: ${JSON.stringify(serverInfo)}`);
+    registerCommonSubscriptions(context, {
+        serverInfo,
+        outputChannel,
+        toolConfig: FLAKE8_TOOL_CONFIG,
+        toolContext,
+        pythonProvider,
+    });
 
-    let isRestarting = false;
-    let restartTimer: NodeJS.Timeout | undefined;
-    const runServer = async () => {
-        if (isRestarting) {
-            if (restartTimer) {
-                clearTimeout(restartTimer);
-            }
-            restartTimer = setTimeout(runServer, LS_SERVER_RESTART_DELAY);
-            return;
-        }
-        isRestarting = true;
-        try {
-            const projectRoot = await getProjectRoot();
-            const workspaceSetting = await getWorkspaceSettings(serverId, projectRoot, true);
-            if (workspaceSetting.interpreter.length === 0) {
-                updateStatus(vscode.l10n.t('Please select a Python interpreter.'), vscode.LanguageStatusSeverity.Error);
-                traceError(
-                    'Python interpreter missing:\r\n' +
-                        '[Option 1] Select Python interpreter using the ms-python.python (select interpreter command).\r\n' +
-                        `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n`,
-                    `Please use Python ${PYTHON_VERSION} or greater.`,
-                );
-            } else {
-                lsClient = await restartServer(workspaceSetting, serverId, serverName, outputChannel, lsClient);
-            }
-        } finally {
-            isRestarting = false;
-        }
-    };
-
-    context.subscriptions.push(
-        onDidChangePythonInterpreter(async () => {
-            try {
-                await runServer();
-            } catch (ex) {
-                traceError(`Failed to restart server on interpreter change: ${ex}`);
-            }
-        }),
-        registerCommand(`${serverId}.showLogs`, async () => {
-            outputChannel.show();
-        }),
-        registerCommand(`${serverId}.restart`, async () => {
-            try {
-                await runServer();
-            } catch (ex) {
-                traceError(`Failed to restart server: ${ex}`);
-            }
-        }),
-        onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
-            if (checkIfConfigurationChanged(e, serverId)) {
-                try {
-                    await runServer();
-                } catch (ex) {
-                    traceError(`Failed to restart server on config change: ${ex}`);
-                }
-            }
-        }),
-        registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
-    );
-
-    context.subscriptions.push(...createConfigFileWatchers(runServer));
-
-    // This is needed to inform users that they might have some legacy settings that
-    // are no longer supported. Instructions are printed in the output channel on how
-    // to update them.
     logLegacySettings();
 
-    setImmediate(async () => {
-        try {
-            const interpreter = getInterpreterFromSetting(serverId);
-            if (interpreter === undefined || interpreter.length === 0) {
-                traceLog(`Python extension loading`);
-                await initializePython(context.subscriptions);
-                traceLog(`Python extension loaded`);
-            } else {
-                await runServer();
-            }
-        } catch (ex) {
-            traceError(`Failed during extension initialization: ${ex}`);
-        }
-    });
+    setImmediate(() => toolContext!.initialize(context.subscriptions));
 }
 
 export async function deactivate(): Promise<void> {
-    if (lsClient) {
-        try {
-            await lsClient.stop();
-        } catch (ex) {
-            traceError(`Server: Stop failed: ${ex}`);
-        }
-    }
+    await deactivateServer(toolContext);
 }

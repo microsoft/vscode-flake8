@@ -4,7 +4,11 @@
 import * as path from 'path';
 
 import { runTests } from '@vscode/test-electron';
-import { EXTENSION_ROOT_DIR } from '../../common/constants';
+
+// Compute extension root directly — cannot import from constants.ts here
+// because it transitively pulls in @vscode/common-python-lsp which requires
+// the vscode module (unavailable outside the extension host).
+const EXTENSION_ROOT_DIR = path.resolve(__dirname, '..', '..', '..');
 
 async function main() {
     try {
