@@ -1,22 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// Thin wrapper: delegates to vscode-common-python-lsp shared package.
-// Defines ISettings (extends IBaseSettings with flake8-specific fields)
-// and provides backward-compatible function signatures.
+// Extension-specific settings: ISettings type extension and legacy settings logging.
+// All shared settings resolution is handled by @vscode/common-python-lsp directly.
 
-import { ConfigurationChangeEvent, WorkspaceFolder } from 'vscode';
-import {
-    IBaseSettings,
-    checkIfConfigurationChanged as _checkIfConfigurationChanged,
-    getGlobalSettings as _getGlobalSettings,
-    getWorkspaceSettings as _getWorkspaceSettings,
-    resolveVariables,
-    traceWarn,
-} from '@vscode/common-python-lsp';
-import { FLAKE8_TOOL_CONFIG } from './constants';
-import { getInterpreterDetails } from './python';
-import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
+import { IBaseSettings, getConfiguration, getWorkspaceFolders, traceWarn } from '@vscode/common-python-lsp';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 export interface ISettings extends IBaseSettings {
@@ -26,50 +14,6 @@ export interface ISettings extends IBaseSettings {
     extraPaths: string[];
 }
 
-export async function getWorkspaceSettings(
-    namespace: string,
-    workspace: WorkspaceFolder,
-    includeInterpreter?: boolean,
-): Promise<ISettings> {
-    const resolveInterpreter = includeInterpreter ? getInterpreterDetails : undefined;
-    const settings = (await _getWorkspaceSettings(
-        namespace,
-        workspace,
-        FLAKE8_TOOL_CONFIG,
-        resolveInterpreter,
-    )) as ISettings;
-
-    // Post-process: resolve variables in ignorePatterns (tool-specific
-    // settings from settingsDefaults don't go through resolveVariables)
-    if (settings.ignorePatterns?.length > 0) {
-        settings.ignorePatterns = resolveVariables(settings.ignorePatterns, workspace);
-    }
-
-    return settings;
-}
-
-export function getExtensionSettings(namespace: string, includeInterpreter?: boolean): Promise<ISettings[]> {
-    return Promise.all(getWorkspaceFolders().map((w) => getWorkspaceSettings(namespace, w, includeInterpreter)));
-}
-
-export async function getGlobalSettings(namespace: string, includeInterpreter?: boolean): Promise<ISettings> {
-    const resolveInterpreter = includeInterpreter ? async () => getInterpreterDetails() : undefined;
-    const settings = (await _getGlobalSettings(namespace, FLAKE8_TOOL_CONFIG, resolveInterpreter)) as ISettings;
-
-    // Preserve old behavior: when includeInterpreter is false, interpreter is []
-    if (!includeInterpreter) {
-        settings.interpreter = [];
-    }
-
-    return settings;
-}
-
-export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespace: string): boolean {
-    return _checkIfConfigurationChanged(e, namespace, FLAKE8_TOOL_CONFIG.trackedSettings);
-}
-
-// Legacy settings logging — kept local because flake8 has custom messages
-// that don't fit the shared legacyMappings pattern.
 export function logLegacySettings(): void {
     getWorkspaceFolders().forEach((workspace) => {
         try {
