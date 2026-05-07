@@ -80,7 +80,7 @@ LSP_SERVER = LanguageServer(
 FLAKE8_CONFIG = ToolServerConfig(
     tool_module="flake8",
     tool_display="Flake8",
-    tool_args=["--format='%(row)d,%(col)d,%(code).1s,%(code)s:%(text)s'"],
+    tool_args=["--format=%(row)d,%(col)d,%(code).1s,%(code)s:%(text)s"],
     min_version="5.0.0",
     runner_script=str(RUNNER),
     default_notification_level="onError",
