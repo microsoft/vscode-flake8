@@ -27,6 +27,7 @@ export function logLegacySettings(): void {
         try {
             const legacyConfig = getConfiguration('python', workspace.uri);
             const legacyFlake8Enabled = legacyConfig.get<boolean>('linting.flake8Enabled', false);
+            const legacyFlake8Path = legacyConfig.get<string>('linting.flake8Path', '');
             if (legacyFlake8Enabled) {
                 traceWarn(`"python.linting.flake8Enabled" is deprecated. You can remove that setting.`);
                 traceWarn(
@@ -37,6 +38,11 @@ export function logLegacySettings(): void {
                     `"python.linting.flake8Enabled" value for workspace ${workspace.uri.fsPath}: ${legacyFlake8Enabled}`,
                 );
             }
+            if (legacyFlake8Path.length > 0 && legacyFlake8Path !== 'flake8') {
+                traceWarn(`"python.linting.flake8Path" is deprecated. Use "flake8.path" instead.`);
+                traceWarn(`"python.linting.flake8Path" value for workspace ${workspace.uri.fsPath}:`);
+                traceWarn(`\n${JSON.stringify(legacyFlake8Path, null, 4)}`);
+            }
         } catch (err) {
             traceWarn(`Error while logging legacy settings: ${err}`);
         }
@@ -46,6 +52,5 @@ export function logLegacySettings(): void {
     _logLegacySettings('flake8', [
         { legacyKey: 'linting.cwd', newKey: 'cwd' },
         { legacyKey: 'linting.flake8Args', newKey: 'args', isArray: true },
-        { legacyKey: 'linting.flake8Path', newKey: 'path' },
     ]);
 }
