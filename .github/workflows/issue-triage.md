@@ -7,6 +7,7 @@ description: >
   microsoft/vscode-common-python-lsp shared package, and look for related open
   issues on the upstream flake8 repository (PyCQA/flake8). If applicable, suggest
   an upstream fix and surface relevant flake8 issues to the reporter.
+if: github.repository_owner == 'microsoft'
 on:
   issues:
     types: [opened]
