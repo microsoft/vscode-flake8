@@ -24,7 +24,9 @@ flake8==7.3.0 \
 lsprotocol==2025.0.0 \
     --hash=sha256:e879da2b9301e82cfc3e60d805630487ac2f7ab17492f4f5ba5aaba94fe56c29 \
     --hash=sha256:f9d78f25221f2a60eaa4a96d3b4ffae011b107537facee61d3da3313880995c7
-    # via pygls
+    # via
+    #   pygls
+    #   vscode-common-python-lsp
 mccabe==0.7.0 \
     --hash=sha256:348e0240c33b60bbdf4e523192ef919f28cb2c3d7d5c7794f74009290f236325 \
     --hash=sha256:6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e
@@ -32,7 +34,9 @@ mccabe==0.7.0 \
 packaging==26.0 \
     --hash=sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4 \
     --hash=sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529
-    # via -r ./requirements.in
+    # via
+    #   -r ./requirements.in
+    #   vscode-common-python-lsp
 pycodestyle==2.14.0 \
     --hash=sha256:c4b5b517d278089ff9d0abdec919cd97262a3367449ea1c8b49b91529167b783 \
     --hash=sha256:dd6bf7cb4ee77f8e016f9c8e74a35ddd9f67e1d5fd4184d86c3b98e07099f42d
@@ -44,10 +48,16 @@ pyflakes==3.4.0 \
 pygls==2.0.1 \
     --hash=sha256:2f774a669fbe2ece977d302786f01f9b0c5df7d0204ea0fa371ecb08288d6b86 \
     --hash=sha256:d29748042cea5bedc98285eb3e2c0c60bf3fc73786319519001bf72bbe8f36cc
-    # via -r ./requirements.in
+    # via
+    #   -r ./requirements.in
+    #   vscode-common-python-lsp
 typing-extensions==4.15.0 \
     --hash=sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466 \
     --hash=sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548
     # via
     #   cattrs
     #   exceptiongroup
+vscode-common-python-lsp==0.6.0 \
+    --hash=sha256:499bf066372ed86a62f140a668a4b0f72328cdf8d08057df45892fc1c5b627f6 \
+    --hash=sha256:6892a401311217f501d9b2f86a82a9629c89d565082330adb77bf8cddf634a72
+    # via -r ./requirements.in
