@@ -14,5 +14,7 @@
         "noImplicitReturns": true, 
         "noFallthroughCasesInSwitch": true, 
         "noUnusedParameters": true
-    }
+    },
+    "include": ["src"],
+    "exclude": ["node_modules", "external", "out", "dist", ".vscode-test"]
 }
