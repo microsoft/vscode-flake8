@@ -66,8 +66,8 @@
         "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.yml' '.github/**/*.yml'",
         "fix-format": "prettier --write src/**/*.ts build/**/*.yml .github/**/*.yml",
         "test": "node ./out/test/ts_tests/runTest.js",
-        "vsce-package": "vsce package -o flake8.vsix",
-        "vsce-package-pre": "vsce package -o flake8.vsix --pre-release"
+        "vsce-package": "vsce package -o flake8.vsix --no-dependencies",
+        "vsce-package-pre": "vsce package -o flake8.vsix --pre-release --no-dependencies"
     },
     "contributes": {
         "languages": [
