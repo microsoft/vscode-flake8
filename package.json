@@ -62,12 +62,12 @@
         "compile-tests": "tsc -p . --outDir out",
         "watch-tests": "tsc -p . -w --outDir out",
         "pretest": "npm run compile-tests && npm run compile && npm run lint",
-        "lint": "eslint src --ext ts",
+        "lint": "eslint src",
         "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.yml' '.github/**/*.yml'",
         "fix-format": "prettier --write src/**/*.ts build/**/*.yml .github/**/*.yml",
         "test": "node ./out/test/ts_tests/runTest.js",
-        "vsce-package": "vsce package -o flake8.vsix",
-        "vsce-package-pre": "vsce package -o flake8.vsix --pre-release"
+        "vsce-package": "vsce package -o flake8.vsix --no-dependencies",
+        "vsce-package-pre": "vsce package -o flake8.vsix --pre-release --no-dependencies"
     },
     "contributes": {
         "languages": [
@@ -239,20 +239,20 @@
         "@types/node": "22.x",
         "@types/sinon": "^21.0.0",
         "@types/vscode": "^1.74.0",
-        "@typescript-eslint/eslint-plugin": "^7.18.0",
-        "@typescript-eslint/parser": "^7.18.0",
+        "@typescript-eslint/eslint-plugin": "^8.59.2",
+        "@typescript-eslint/parser": "^8.59.2",
         "@vscode/test-electron": "^2.5.2",
-        "@vscode/vsce": "^3.7.1-1",
+        "@vscode/vsce": "^3.9.2",
         "chai": "^6.2.2",
-        "eslint": "^8.57.1",
+        "eslint": "^10.3.0",
         "fs-extra": "^11.3.4",
         "glob": "^13.0.6",
         "mocha": "^11.7.5",
         "prettier": "^3.8.1",
-        "sinon": "^21.0.2",
-        "ts-loader": "^9.5.4",
-        "typescript": "^5.9.3",
-        "webpack": "^5.105.4",
-        "webpack-cli": "^6.0.1"
+        "sinon": "^22.0.0",
+        "ts-loader": "^9.6.2",
+        "typescript": "^6.0.3",
+        "webpack": "^5.110.1",
+        "webpack-cli": "^7.0.2"
     }
 }
