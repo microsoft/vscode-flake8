@@ -12,7 +12,6 @@ import {
     traceWarn,
 } from '@vscode/common-python-lsp';
 
-/* eslint-disable @typescript-eslint/naming-convention */
 export interface ISettings extends IBaseSettings {
     enabled: boolean;
     severity: Record<string, string>;
