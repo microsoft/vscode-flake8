@@ -3,32 +3,35 @@
 // Note: a clone made without `--recurse-submodules` actually fails earlier,
 // when npm resolves the `file:` dependency during the install phase, before
 // this postinstall script runs.
-const { existsSync } = require("fs");
-const { execSync } = require("child_process");
+const { existsSync } = require('fs');
+const { execSync } = require('child_process');
 
-const pkgDir = "external/vscode-common-python-lsp/typescript";
+const pkgDir = 'external/vscode-common-python-lsp/typescript';
 
 if (!existsSync(`${pkgDir}/package.json`)) {
-  console.warn(
-    `[postinstall] Shared package submodule not found at "${pkgDir}". ` +
-      "Run `git submodule update --init --recursive` and reinstall to build it.",
-  );
-  process.exit(0);
+    console.warn(
+        `[postinstall] Shared package submodule not found at "${pkgDir}". ` +
+            'Run `git submodule update --init --recursive` and reinstall to build it.',
+    );
+    process.exit(0);
 }
 
 // Already built (e.g. by a prior install or the packaging pipeline); nothing to do.
 if (existsSync(`${pkgDir}/dist/index.js`)) {
-  process.exit(0);
+    process.exit(0);
 }
 
-// Root npm installs do not bring along the submodule's devDependencies, so we
-// install and build the shared package here when its compiled output is missing.
-if (
-  !existsSync(`${pkgDir}/node_modules/.bin/tsc`) &&
-  !existsSync(`${pkgDir}/node_modules/.bin/tsc.cmd`) &&
-  !existsSync(`${pkgDir}/node_modules/typescript`)
-) {
-  execSync(`npm --prefix ${pkgDir} ci`, { stdio: "inherit" });
+// TypeScript may be installed in the root node_modules when npm can hoist the
+// submodule's version. Resolve from the package directory so both layouts work.
+try {
+    require.resolve('typescript/bin/tsc', { paths: [pkgDir] });
+} catch {
+    console.warn(
+        `[postinstall] TypeScript toolchain not installed for "${pkgDir}"; ` +
+            'skipping the shared package build. Run `npm ci` from the repository root ' +
+            'before building the extension.',
+    );
+    process.exit(0);
 }
 
-execSync(`npm --prefix ${pkgDir} run build`, { stdio: "inherit" });
+execSync(`npm --prefix ${pkgDir} run build`, { stdio: 'inherit' });
