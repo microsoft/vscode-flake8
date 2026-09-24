@@ -85,6 +85,7 @@ extends:
               buildSteps: ${{ parameters.buildSteps }}
               isPreRelease: true
               standardizedVersioning: true
+              vscePackageArgs: --no-dependencies
               customNPMRegistry: $(AZURE_ARTIFACTS_FEED)
 
       - stage: Publish

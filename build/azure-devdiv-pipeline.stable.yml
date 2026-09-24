@@ -80,6 +80,7 @@ extends:
               buildSteps: ${{ parameters.buildSteps }}
               isPreRelease: false
               standardizedVersioning: true
+              vscePackageArgs: --no-dependencies
               customNPMRegistry: $(AZURE_ARTIFACTS_FEED)
 
       - stage: WaitForValidation

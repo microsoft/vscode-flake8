@@ -121,7 +121,7 @@ In this section, you will find some common issues you might encounter and how to
 
 ## Development
 
-This extension installs the TypeScript package from `@vscode/common-python-lsp` and bundles it with webpack. The shared Python library is sourced from the [`vscode-common-python-lsp`](https://github.com/microsoft/vscode-common-python-lsp) git submodule at `external/vscode-common-python-lsp`, so the submodule must be initialized before building the bundled Python dependencies.
+This extension bundles the shared [`vscode-common-python-lsp`](https://github.com/microsoft/vscode-common-python-lsp) library as a git submodule at `external/vscode-common-python-lsp`. The submodule must be initialized before installing dependencies, because `npm install` builds the shared library from it.
 
 When cloning the repository, pull the submodule at the same time:
 

@@ -60,7 +60,7 @@ updates:
     cooldown:
       default-days: 7
 
-  # The shared Python source submodule is updated daily in a standalone PR.
+  # The shared package submodule is updated daily in a standalone PR.
   - package-ecosystem: 'gitsubmodule'
     labels:
       - 'dependencies'
