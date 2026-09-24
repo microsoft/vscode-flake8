@@ -54,7 +54,6 @@
     "main": "./dist/extension.js",
     "l10n": "./l10n",
     "scripts": {
-        "postinstall": "node ./build/postinstall.js",
         "vscode:prepublish": "npm run package",
         "compile": "webpack",
         "watch": "webpack --watch",
@@ -226,8 +225,10 @@
             }
         ]
     },
+    "dependencies": {
+        "@vscode/common-python-lsp": "0.8.2"
+    },
     "devDependencies": {
-        "@vscode/common-python-lsp": "file:external/vscode-common-python-lsp/typescript",
         "@types/chai": "^5.2.3",
         "@types/fs-extra": "^11.0.4",
         "@types/glob": "^9.0.0",
