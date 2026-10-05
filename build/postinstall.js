@@ -21,14 +21,17 @@ if (existsSync(`${pkgDir}/dist/index.js`)) {
   process.exit(0);
 }
 
-// Root npm installs do not bring along the submodule's devDependencies, so we
-// install and build the shared package here when its compiled output is missing.
-if (
-  !existsSync(`${pkgDir}/node_modules/.bin/tsc`) &&
-  !existsSync(`${pkgDir}/node_modules/.bin/tsc.cmd`) &&
-  !existsSync(`${pkgDir}/node_modules/typescript`)
-) {
-  execSync(`npm --prefix ${pkgDir} ci`, { stdio: "inherit" });
+// TypeScript may be installed in the root node_modules when npm can hoist the
+// submodule's version. Resolve from the package directory so both layouts work.
+try {
+  require.resolve("typescript/bin/tsc", { paths: [pkgDir] });
+} catch {
+  console.warn(
+    `[postinstall] TypeScript toolchain not installed for "${pkgDir}"; ` +
+      "skipping the shared package build. Run `npm ci` from the repository root " +
+      "before building the extension.",
+  );
+  process.exit(0);
 }
 
 execSync(`npm --prefix ${pkgDir} run build`, { stdio: "inherit" });

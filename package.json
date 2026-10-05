@@ -66,8 +66,8 @@
         "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.yml' '.github/**/*.yml'",
         "fix-format": "prettier --write src/**/*.ts build/**/*.yml .github/**/*.yml",
         "test": "node ./out/test/ts_tests/runTest.js",
-        "vsce-package": "vsce package -o flake8.vsix --no-dependencies",
-        "vsce-package-pre": "vsce package -o flake8.vsix --pre-release --no-dependencies"
+        "vsce-package": "vsce package -o flake8.vsix",
+        "vsce-package-pre": "vsce package -o flake8.vsix --pre-release"
     },
     "contributes": {
         "languages": [
@@ -239,8 +239,8 @@
         "@types/vscode": "^1.74.0",
         "@typescript-eslint/eslint-plugin": "^8.59.2",
         "@typescript-eslint/parser": "^8.59.2",
-        "@vscode/test-electron": "^2.5.2",
-        "@vscode/vsce": "^3.9.2",
+        "@vscode/test-electron": "^3.1.0",
+        "@vscode/vsce": "^4.0.0",
         "chai": "^6.2.2",
         "eslint": "^10.3.0",
         "fs-extra": "^11.3.4",
@@ -250,7 +250,7 @@
         "sinon": "^22.0.0",
         "ts-loader": "^9.6.2",
         "typescript": "^6.0.3",
-        "webpack": "^5.110.1",
-        "webpack-cli": "^7.0.2"
+        "webpack": "^5.111.1",
+        "webpack-cli": "^7.2.3"
     }
 }
