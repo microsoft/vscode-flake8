@@ -10,3 +10,7 @@ bundled/libs/
 **/.pytest_cache
 **/.vs
 **/.DS_Store
+
+# Localization is generated from the dev handback during releases.
+/package.nls.*.json
+/l10n/
