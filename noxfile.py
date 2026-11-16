@@ -13,6 +13,14 @@ import nox
 
 
 def _install_bundle(session: nox.Session) -> None:
+    shared_python_lib = (
+        pathlib.Path(__file__).parent / "external/vscode-common-python-lsp/python"
+    )
+    if not (shared_python_lib / "pyproject.toml").is_file():
+        session.error(
+            f"Shared package submodule missing at {shared_python_lib}. "
+            "Run 'git submodule update --init --recursive' before building."
+        )
     session.install(
         "-t",
         "./bundled/libs",
@@ -23,6 +31,14 @@ def _install_bundle(session: nox.Session) -> None:
         "--upgrade",
         "-r",
         "./requirements.txt",
+    )
+    session.install(
+        "-t",
+        "./bundled/libs",
+        "--no-cache-dir",
+        "--no-deps",
+        "--upgrade",
+        os.fspath(shared_python_lib),
     )
 
 
@@ -62,12 +78,11 @@ def _update_npm_packages(session: nox.Session) -> None:
     pinned = {
         "@types/vscode",
         "@types/node",
-        "@vscode/common-python-lsp",
     }
     package_json_path = pathlib.Path(__file__).parent / "package.json"
     package_json = json.loads(package_json_path.read_text(encoding="utf-8"))
 
-    for package in package_json["dependencies"]:
+    for package in package_json.get("dependencies", {}):
         if package not in pinned:
             data = _get_package_data(package)
             latest = "^" + data["dist-tags"]["latest"]
@@ -109,22 +124,6 @@ def install_bundled_libs(session):
     """Installs the libraries that will be bundled with the extension."""
     session.install("wheel")
     _install_bundle(session)
-    # Source the shared Python library from the git submodule instead of the
-    # published package so the bundled copy matches the pinned submodule commit.
-    shared_python_lib = pathlib.Path("external/vscode-common-python-lsp/python")
-    if not shared_python_lib.exists():
-        session.error(
-            f"Shared package submodule missing at {shared_python_lib}. "
-            "Run 'git submodule update --init --recursive' before building."
-        )
-    session.install(
-        "-t",
-        "./bundled/libs",
-        "--no-cache-dir",
-        "--no-deps",
-        "--upgrade",
-        "./external/vscode-common-python-lsp/python",
-    )
 
 
 @nox.session(python="3.10")

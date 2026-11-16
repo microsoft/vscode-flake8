@@ -121,7 +121,7 @@ In this section, you will find some common issues you might encounter and how to
 
 ## Development
 
-This extension bundles the shared [`vscode-common-python-lsp`](https://github.com/microsoft/vscode-common-python-lsp) library as a git submodule at `external/vscode-common-python-lsp`. The submodule must be initialized before installing dependencies, because `npm install` builds the shared library from it.
+This extension bundles the shared [`vscode-common-python-lsp`](https://github.com/microsoft/vscode-common-python-lsp) source as a git submodule at `external/vscode-common-python-lsp`. Initialize the pinned submodule before installing dependencies. The extension imports its built public `typescript/dist` entry, not a published npm package.
 
 When cloning the repository, pull the submodule at the same time:
 
@@ -139,7 +139,12 @@ Then install dependencies:
 
 ```bash
 npm install
+python -m nox --session install_bundled_libs
 ```
+
+`npm install` (or `npm ci`) restores the submodule's locked TypeScript dependencies and builds it. Compile, typecheck/test compilation, watch startup, and packaging rebuild that source before consuming it, even if `dist` already exists. The nox bundle and setup sessions install the Python library from the same submodule into `bundled/libs` alongside its pinned runtime dependencies. The private distribution name `vscode-python-tool-internal` is metadata only; Python imports remain `vscode_common_python_lsp`.
+
+`npm run test-runtime` and `npm run test-setup` run headless activation-wiring and source-build checks. Both are also included in `npm run pretest`; they mock extension APIs and do not replace extension-host or packaged-server testing.
 
 ### Localization
 
