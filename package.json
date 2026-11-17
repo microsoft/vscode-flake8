@@ -55,17 +55,25 @@
     "l10n": "./l10n",
     "scripts": {
         "postinstall": "node ./build/postinstall.js",
+        "build-shared": "npm --prefix ./external/vscode-common-python-lsp/typescript run build",
         "vscode:prepublish": "npm run package",
+        "precompile": "npm run build-shared",
         "compile": "webpack",
+        "prewatch": "npm run build-shared",
         "watch": "webpack --watch",
+        "prepackage": "npm run build-shared",
         "package": "webpack --mode production --devtool source-map --config ./webpack.config.js",
+        "precompile-tests": "npm run build-shared",
         "compile-tests": "tsc -p . --outDir out",
+        "prewatch-tests": "npm run build-shared",
         "watch-tests": "tsc -p . -w --outDir out",
-        "pretest": "npm run compile-tests && npm run compile && npm run lint",
+        "pretest": "npm run compile-tests && npm run compile && npm run lint && node --test src/test/*.test.cjs",
         "lint": "eslint src",
         "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.yml' '.github/**/*.yml'",
         "fix-format": "prettier --write src/**/*.ts build/**/*.yml .github/**/*.yml",
         "test": "node ./out/test/ts_tests/runTest.js",
+        "test-runtime": "npm run compile-tests && node --test src/test/runtime.test.cjs",
+        "test-setup": "node --test src/test/setup.test.cjs",
         "vsce-package": "vsce package -o flake8.vsix",
         "vsce-package-pre": "vsce package -o flake8.vsix --pre-release"
     },
@@ -225,9 +233,6 @@
                 "command": "flake8.restart"
             }
         ]
-    },
-    "dependencies": {
-        "@vscode/common-python-lsp": "file:external/vscode-common-python-lsp/typescript"
     },
     "devDependencies": {
         "@types/chai": "^5.2.3",

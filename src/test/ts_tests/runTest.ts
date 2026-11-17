@@ -6,7 +6,7 @@ import * as path from 'path';
 import { runTests } from '@vscode/test-electron';
 
 // Compute extension root directly — cannot import from constants.ts here
-// because it transitively pulls in @vscode/common-python-lsp which requires
+// because it transitively pulls in the shared runtime, which requires
 // the vscode module (unavailable outside the extension host).
 const EXTENSION_ROOT_DIR = path.resolve(__dirname, '..', '..', '..');
 

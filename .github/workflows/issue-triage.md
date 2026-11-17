@@ -77,7 +77,7 @@ Key shared areas that come from the template include:
 - **Build & CI infrastructure**: `noxfile.py`, webpack config, Azure Pipelines definitions, GitHub Actions workflows.
 - **Dependency management**: `requirements.in` / `requirements.txt`, bundled libs pattern.
 
-Additionally, this extension depends on the **[vscode-common-python-lsp](https://github.com/microsoft/vscode-common-python-lsp)** shared package (npm: `@vscode/common-python-lsp`, pip: `vscode-common-python-lsp`). This package provides common TypeScript and Python infrastructure shared across all Python tool VS Code extensions, including LSP server scaffolding, utilities, JSON-RPC helpers, and notebook support. Some files under `src/common/` and `bundled/tool/` are thin wrappers that delegate to this shared package.
+Additionally, this extension bundles the **[vscode-common-python-lsp](https://github.com/microsoft/vscode-common-python-lsp)** shared source pinned by the `external/vscode-common-python-lsp` git submodule. This source provides common TypeScript and Python infrastructure shared across all Python tool VS Code extensions, including LSP server scaffolding, utilities, JSON-RPC helpers, and notebook support. Some files under `src/common/` and `bundled/tool/` are thin wrappers that delegate to this shared source.
 
 Flake8-specific code includes:
 
@@ -150,7 +150,7 @@ Specifically:
 
 Determine whether the issue might originate from the **[vscode-common-python-lsp](https://github.com/microsoft/vscode-common-python-lsp)** shared package rather than from this extension's own code or the template.
 
-1. **Identify the installed version** — check `package.json` (npm: `@vscode/common-python-lsp`) and `noxfile.py` or `requirements.in`/`requirements.txt` (pip: `vscode-common-python-lsp`) to determine the exact version of the shared package this extension uses.
+1. **Identify the pinned source** — check the gitlink at `external/vscode-common-python-lsp` for the exact shared commit. TypeScript builds and Python bundle installs consume that same checkout; the private `vscode-python-tool-internal` distribution metadata is not a registry dependency.
 2. **Read the relevant file(s)** in the shared package repository (checked out to the `shared-package/` directory). Focus on the modules that correspond to the affected code: TypeScript modules under `src/` and Python modules under `python/`.
 3. **Determine if the root cause exists in the shared package** — i.e., whether the problematic code is implemented in the shared package and merely re-exported or wrapped by this extension.
 4. **Search open issues and PRs** on `microsoft/vscode-common-python-lsp` for related reports or existing fixes. Also check whether a fix exists on the default branch but has not yet been released in the version this extension uses.
